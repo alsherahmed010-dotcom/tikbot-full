@@ -1,99 +1,100 @@
 const express = require('express');
 const { exec } = require('child_process');
-const { Pool } = require('pg');
 const app = express();
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 
-const databaseUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_INTERNAL || process.env.DATABASE_PUBLIC_URL;
-const pool = new Pool({ connectionString: databaseUrl, ssl: { rejectUnauthorized: false } });
+// تخزين محلي مؤقت (بدل PostgreSQL)
+let accounts = [];
+let totalCoins = 0;
 
-async function initDB() {
-  try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS tikbot_accounts (
-      id SERIAL PRIMARY KEY,
-      username VARCHAR(255) NOT NULL,
-      coins INTEGER DEFAULT 0,
-      status VARCHAR(50) DEFAULT 'active',
-      created_at TIMESTAMP DEFAULT NOW()
-    )`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS tikbot_stats (
-      id SERIAL PRIMARY KEY,
-      account_id INTEGER,
-      action VARCHAR(50),
-      coins_earned INTEGER,
-      created_at TIMESTAMP DEFAULT NOW()
-    )`);
-    console.log('✅ DB');
-  } catch (e) { console.error('DB:', e.message); }
+// تحميل الحسابات من ملف لو موجود
+if (fs.existsSync('accounts.json')) {
+    accounts = JSON.parse(fs.readFileSync('accounts.json', 'utf8'));
+    totalCoins = accounts.reduce((sum, acc) => sum + acc.coins, 0);
 }
-initDB();
 
-app.get('/', (req, res) => res.json({ status: 'running' }));
+function saveAccounts() {
+    fs.writeFileSync('accounts.json', JSON.stringify(accounts, null, 2));
+}
+
+app.get('/', (req, res) => res.json({ status: 'running', service: 'TikBot' }));
 
 // إضافة حساب
-app.post('/api/accounts', async (req, res) => {
-  try {
+app.post('/api/accounts', (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'Username required' });
-    const r = await pool.query('INSERT INTO tikbot_accounts (username) VALUES ($1) RETURNING *', [username.replace('@', '')]);
-    res.json({ success: true, account: r.rows[0] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    
+    const clean = username.replace('@', '').trim();
+    const exists = accounts.find(a => a.username === clean);
+    if (exists) return res.status(400).json({ error: 'Account already exists' });
+    
+    const account = {
+        id: Date.now(),
+        username: clean,
+        coins: 0,
+        status: 'active',
+        createdAt: Date.now()
+    };
+    
+    accounts.push(account);
+    saveAccounts();
+    res.json({ success: true, account });
 });
 
 // حذف
-app.delete('/api/accounts/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM tikbot_accounts WHERE id = $1', [req.params.id]);
+app.delete('/api/accounts/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    accounts = accounts.filter(a => a.id !== id);
+    totalCoins = accounts.reduce((sum, acc) => sum + acc.coins, 0);
+    saveAccounts();
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // عرض الحسابات
-app.get('/api/accounts', async (req, res) => {
-  try {
-    const r = await pool.query('SELECT * FROM tikbot_accounts ORDER BY created_at DESC');
-    res.json({ success: true, accounts: r.rows });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+app.get('/api/accounts', (req, res) => {
+    res.json({ success: true, accounts });
 });
 
 // إجمالي
-app.get('/api/total-coins', async (req, res) => {
-  try {
-    const r = await pool.query('SELECT SUM(coins) as total FROM tikbot_accounts');
-    res.json({ success: true, total: r.rows[0].total || 0 });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+app.get('/api/total-coins', (req, res) => {
+    totalCoins = accounts.reduce((sum, acc) => sum + acc.coins, 0);
+    res.json({ success: true, total: totalCoins });
 });
 
 // تشغيل البوت
-app.post('/api/run-bot/:id', async (req, res) => {
-  const { id } = req.params;
-  const r = await pool.query('SELECT * FROM tikbot_accounts WHERE id = $1', [id]);
-  const account = r.rows[0];
-  if (!account) return res.status(404).json({ error: 'Not found' });
-  
-  res.json({ success: true, message: `Started @${account.username}` });
-  
-  const botPath = path.join(__dirname, 'bot.py');
-  exec(`python3 ${botPath} ${account.username} ${id}`, (err, stdout) => {
-    if (err) console.error('Error:', err.message);
-    else console.log('Output:', stdout);
-  });
+app.post('/api/run-bot/:id', (req, res) => {
+    const account = accounts.find(a => a.id === parseInt(req.params.id));
+    if (!account) return res.status(404).json({ error: 'Not found' });
+    
+    res.json({ success: true, message: `Started @${account.username}` });
+    
+    // تشغيل البوت في الخلفية
+    const botPath = path.join(__dirname, 'bot.py');
+    exec(`python3 ${botPath} ${account.username} ${account.id}`, (err, stdout, stderr) => {
+        if (err) console.error('Bot error:', err.message);
+        if (stdout) console.log('Bot output:', stdout);
+    });
 });
 
-// تحديث عملات
-app.post('/api/update-coins/:id', async (req, res) => {
-  try {
+// تحديث العملات (بيستدعيها البوت)
+app.post('/api/update-coins/:id', (req, res) => {
+    const id = parseInt(req.params.id);
     const { coins } = req.body;
-    await pool.query('UPDATE tikbot_accounts SET coins = coins + $1 WHERE id = $2', [coins, req.params.id]);
+    
+    const account = accounts.find(a => a.id === id);
+    if (account) {
+        account.coins += parseInt(coins) || 0;
+        totalCoins += parseInt(coins) || 0;
+        saveAccounts();
+    }
+    
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 const PORT = process.env.PORT || 8080;
