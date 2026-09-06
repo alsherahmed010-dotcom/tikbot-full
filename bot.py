@@ -27,34 +27,115 @@ def get_fid(username):
     payload = {"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET}
     headers = get_headers(REGISTRATION_TOKEN)
     
-    print(f"Getting FID for {username}...")
-    print(f"URL: {url}")
-    
     try:
         resp = requests.post(url, params={"include": "account"}, data=payload, headers=headers, timeout=20)
-        print(f"Status: {resp.status_code}")
-        print(f"Response: {resp.text[:300]}")
-        
-        if resp.status_code == 200:
+        if resp.status_code in (200, 201):
             data = resp.json()
-            return data.get("fid"), data.get("id")
+            fid = data.get("fid")
+            user_id = data.get("id")
+            print(f"✅ FID: {fid}")
+            print(f"✅ ID: {user_id}")
+            return str(fid), str(user_id)
+        else:
+            print(f"❌ Status: {resp.status_code}")
+            print(resp.text[:200])
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Error: {e}")
     
     return None, None
 
+def login(fid):
+    url = f"{TIKSTAR_BASE}/auth"
+    payload = {"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "scope": "*", "username": str(fid), "password": "password", "grant_type": "password"}
+    
+    try:
+        resp = requests.post(url, data=payload, headers=get_headers(REGISTRATION_TOKEN), timeout=20)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            token = data.get("access_token")
+            if token:
+                print("✅ Login OK")
+                return token
+        else:
+            print(f"❌ Login status: {resp.status_code}")
+            print(resp.text[:200])
+    except Exception as e:
+        print(f"❌ Login error: {e}")
+    
+    return None
+
+def get_video(token, user_id):
+    try:
+        resp = requests.get(f"{TIKSTAR_BASE}/videos/rand", params={"user_id": str(user_id)}, headers=get_headers(token), timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            vid = data.get("id")
+            coins = data.get("meta", {}).get("coins", 0)
+            return vid, coins
+    except Exception as e:
+        print(f"❌ Video error: {e}")
+    return None, 0
+
+def submit_view(token, post_id):
+    try:
+        resp = requests.post(f"{TIKSTAR_BASE}/viewvideos", data={"post_id": str(post_id)}, headers=get_headers(token), timeout=15)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            coins = data.get("amount", {}).get("amount", 0)
+            return int(coins)
+    except Exception as e:
+        print(f"❌ Submit error: {e}")
+    return 0
+
 def main():
     username = sys.argv[1] if len(sys.argv) > 1 else input("Username: ")
+    account_id = sys.argv[2] if len(sys.argv) > 2 else "0"
     username = username.replace("@", "").strip()
     
-    print(f"Testing FID lookup for: {username}")
-    fid, user_id = get_fid(username)
+    print(f"🚀 Starting for @{username}")
     
-    if fid:
-        print(f"✅ FID: {fid}")
-        print(f"✅ User ID: {user_id}")
-    else:
-        print("❌ Failed")
+    fid, user_id = get_fid(username)
+    if not fid:
+        print("❌ Failed to get FID")
+        return
+    
+    token = login(fid)
+    if not token:
+        print("❌ Failed to login")
+        return
+    
+    total = 0
+    delay = 8
+    
+    while True:
+        try:
+            video_id, video_coins = get_video(token, user_id)
+            if not video_id:
+                time.sleep(delay)
+                continue
+            
+            print(f"📹 Video: {video_id} (coins: {video_coins})")
+            time.sleep(delay)
+            
+            earned = submit_view(token, video_id)
+            if earned > 0:
+                total += earned
+                print(f"✅ Earned: {earned} | Total: {total}")
+                
+                try:
+                    requests.post(f"http://localhost:8080/api/update-coins/{account_id}", json={"coins": earned}, timeout=5)
+                except:
+                    pass
+            else:
+                print("❌ No coins")
+            
+            time.sleep(delay)
+        except KeyboardInterrupt:
+            print(f"\n💰 Total: {total}")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            time.sleep(delay)
 
 if __name__ == "__main__":
     main()
