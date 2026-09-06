@@ -1,93 +1,163 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>TikBot Control</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Cairo', sans-serif; background: #0a0e17; min-height: 100vh; color: #fff; padding: 15px; }
-.app { max-width: 550px; margin: 0 auto; }
-.card { background: #151c2c; border: 1px solid #232d42; border-radius: 20px; padding: 22px 18px; margin-bottom: 14px; }
-.title { font-size: 20px; font-weight: 900; text-align: center; color: #22c55e; margin-bottom: 4px; }
-.total-box { text-align: center; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); border-radius: 16px; padding: 18px; margin-bottom: 14px; }
-.total-box .num { font-size: 42px; font-weight: 900; color: #22c55e; }
-.total-box .lbl { color: #94a3b8; font-size: 13px; }
-.input { width: 100%; padding: 13px 15px; margin: 7px 0; background: #0a0e17; border: 1px solid #232d42; border-radius: 12px; color: #fff; font-family: inherit; font-size: 14px; outline: none; }
-.btn { width: 100%; padding: 12px; margin: 6px 0; border: none; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 900; cursor: pointer; }
-.btn-green { background: #22c55e; color: #000; }
-.btn-blue { background: #2563eb; color: #fff; }
-.btn-red { background: rgba(239,68,68,.15); color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
-.acc-card { background: #0a0e17; border: 1px solid #232d42; border-radius: 14px; padding: 14px; margin: 8px 0; display: flex; align-items: center; justify-content: space-between; }
-.acc-info { flex: 1; }
-.acc-name { font-weight: 900; font-size: 15px; }
-.acc-coins { color: #22c55e; font-size: 12px; }
-.acc-actions { display: flex; gap: 6px; }
-.btn-sm { padding: 8px 12px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; }
-.section { font-size: 16px; font-weight: 900; color: #22c55e; margin: 15px 0 8px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TikBot Hacker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Cairo', sans-serif; background: #020805; min-height: 100vh; color: #00ff66; padding: 15px; }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: .05;
+            background-image:
+                linear-gradient(rgba(0,255,102,.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,255,102,.4) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: 0;
+        }
+        .app { max-width: 580px; margin: 0 auto; position: relative; z-index: 1; }
+        .card { background: #06120c; border: 1px solid rgba(0,255,102,.2); border-radius: 16px; padding: 20px 16px; margin-bottom: 14px; box-shadow: 0 0 30px rgba(0,255,102,.05); }
+        .title { font-size: 22px; font-weight: 900; text-align: center; color: #00ff66; margin-bottom: 4px; text-shadow: 0 0 20px rgba(0,255,102,.5); }
+        .subtitle { text-align: center; color: #83a58f; font-size: 12px; margin-bottom: 16px; }
+        .total-box { text-align: center; background: #03140a; border: 1px solid rgba(0,255,102,.3); border-radius: 14px; padding: 20px; margin-bottom: 12px; }
+        .total-box .num { font-size: 48px; font-weight: 900; color: #00ff66; text-shadow: 0 0 30px rgba(0,255,102,.7); }
+        .total-box .lbl { color: #83a58f; font-size: 12px; }
+        .input { width: 100%; padding: 14px 16px; margin: 7px 0; background: #020a06; border: 1px solid rgba(0,255,102,.2); border-radius: 10px; color: #00ff66; font-family: inherit; font-size: 14px; outline: none; }
+        .input:focus { border-color: #00ff66; box-shadow: 0 0 15px rgba(0,255,102,.15); }
+        .input::placeholder { color: #456; }
+        .btn { width: 100%; padding: 13px; margin: 6px 0; border: none; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 900; cursor: pointer; transition: .2s; }
+        .btn-green { background: #00ff66; color: #001d0a; }
+        .btn-red { background: rgba(255,61,90,.1); color: #ff3d5a; border: 1px solid rgba(255,61,90,.3); }
+        .btn-yellow { background: rgba(255,212,59,.1); color: #ffd43b; border: 1px solid rgba(255,212,59,.3); }
+        .acc-card { background: #041009; border: 1px solid rgba(0,255,102,.25); border-radius: 12px; padding: 14px; margin: 8px 0; display: flex; align-items: center; justify-content: space-between; }
+        .acc-info { flex: 1; }
+        .acc-name { font-weight: 900; font-size: 15px; color: #d8ffe5; }
+        .acc-coins { color: #00ff66; font-size: 13px; margin-top: 2px; }
+        .acc-status { font-size: 10px; color: #83a58f; }
+        .acc-actions { display: flex; gap: 6px; }
+        .btn-sm { padding: 9px 13px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .btn-sm.run { background: #00ff66; color: #001d0a; }
+        .btn-sm.stop { background: #ffd43b; color: #001d0a; }
+        .btn-sm.del { background: rgba(255,61,90,.15); color: #ff3d5a; border: 1px solid rgba(255,61,90,.3); }
+        .section { font-size: 15px; font-weight: 900; color: #00ff66; margin: 15px 0 8px; }
+        .batch-input { background: #020a06; border: 1px solid rgba(0,255,102,.2); border-radius: 10px; padding: 14px; min-height: 80px; width: 100%; color: #00ff66; font-family: monospace; font-size: 13px; outline: none; }
+    </style>
 </head>
 <body>
 <div class="app">
-<div class="card">
-<div class="total-box">
-<div class="num" id="totalCoins">0</div>
-<div class="lbl">💰 إجمالي العملات</div>
+    <div class="card">
+        <div class="title">💀 TIKBOT</div>
+        <div class="subtitle">لوحة التحكم</div>
+        <div class="total-box">
+            <div class="num" id="totalCoins">0</div>
+            <div class="lbl">💰 إجمالي العملات</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="title">➕ إضافة حسابات</div>
+        <div class="subtitle">اكتب حساب واحد أو أكثر (كل سطر = حساب)</div>
+        <textarea class="batch-input" id="usernames" placeholder="ahmed.alsher0&#10;user2&#10;user3"></textarea>
+        <button class="btn btn-green" onclick="addAccounts()">💀 إضافة</button>
+    </div>
+
+    <div class="card">
+        <div class="section">📱 الحسابات</div>
+        <div id="accounts"></div>
+    </div>
 </div>
-</div>
-<div class="card">
-<div class="title">➕ إضافة حساب</div>
-<input class="input" id="username" placeholder="TikTok username">
-<button class="btn btn-green" onclick="addAccount()">إضافة</button>
-</div>
-<div class="card">
-<div class="section">📱 الحسابات</div>
-<div id="accounts"></div>
-</div>
-</div>
+
 <script>
 const API = window.location.origin;
+let runningBots = {};
+
 async function loadAccounts() {
-const r = await fetch(API + '/api/accounts');
-const data = await r.json();
-const list = document.getElementById('accounts');
-if (data.accounts.length === 0) {
-list.innerHTML = '<p style="color:#94a3b8;text-align:center">لا توجد حسابات</p>';
-} else {
-list.innerHTML = data.accounts.map(acc => `
-<div class="acc-card">
-<div class="acc-info">
-<div class="acc-name">@${acc.username}</div>
-<div class="acc-coins">💰 ${acc.coins} عملة</div>
-</div>
-<div class="acc-actions">
-<button class="btn-sm btn-blue" onclick="runBot(${acc.id})">▶️</button>
-<button class="btn-sm btn-red" onclick="delAccount(${acc.id})">🗑️</button>
-</div>
-</div>
-`).join('');
+    const r = await fetch(API + '/api/accounts');
+    const data = await r.json();
+    const list = document.getElementById('accounts');
+    
+    if (data.accounts.length === 0) {
+        list.innerHTML = '<p style="color:#456;text-align:center">لا توجد حسابات</p>';
+    } else {
+        list.innerHTML = data.accounts.map(acc => {
+            const isRunning = runningBots[acc.id] || false;
+            return `
+                <div class="acc-card">
+                    <div class="acc-info">
+                        <div class="acc-name">@${acc.username}</div>
+                        <div class="acc-coins">💰 ${acc.coins} عملة</div>
+                        <div class="acc-status">${isRunning ? '🟢 شغال' : '⚪ متوقف'}</div>
+                    </div>
+                    <div class="acc-actions">
+                        <button class="btn-sm ${isRunning ? 'stop' : 'run'}" onclick="toggleBot(${acc.id}, '${acc.username}', this)">
+                            ${isRunning ? '⏹ إيقاف' : '▶️ تشغيل'}
+                        </button>
+                        <button class="btn-sm del" onclick="delAccount(${acc.id})">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    const tr = await fetch(API + '/api/total-coins');
+    const td = await tr.json();
+    document.getElementById('totalCoins').textContent = td.total;
 }
-const tr = await fetch(API + '/api/total-coins');
-const td = await tr.json();
-document.getElementById('totalCoins').textContent = td.total;
+
+async function addAccounts() {
+    const text = document.getElementById('usernames').value.trim();
+    if (!text) return;
+    
+    const usernames = text.split('\n').map(u => u.replace('@', '').trim()).filter(u => u);
+    
+    if (usernames.length > 5) {
+        alert('❌ الحد الأقصى 5 حسابات');
+        return;
+    }
+    
+    let added = 0;
+    for (const username of usernames) {
+        await fetch(API + '/api/accounts', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username})
+        });
+        added++;
+    }
+    
+    document.getElementById('usernames').value = '';
+    loadAccounts();
+    alert('✅ تم إضافة ' + added + ' حساب');
 }
-async function addAccount() {
-const username = document.getElementById('username').value.trim().replace('@', '');
-if (!username) return;
-await fetch(API + '/api/accounts', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username})});
-document.getElementById('username').value = '';
-loadAccounts();
+
+async function toggleBot(id, username, btn) {
+    if (runningBots[id]) {
+        runningBots[id] = false;
+        btn.textContent = '▶️ تشغيل';
+        btn.className = 'btn-sm run';
+        loadAccounts();
+    } else {
+        runningBots[id] = true;
+        btn.textContent = '⏹ إيقاف';
+        btn.className = 'btn-sm stop';
+        loadAccounts();
+        
+        await fetch(API + '/api/run-bot/' + id, {method: 'POST'});
+    }
 }
+
 async function delAccount(id) {
-if (!confirm('حذف؟')) return;
-await fetch(API + '/api/accounts/' + id, {method:'DELETE'});
-loadAccounts();
+    if (!confirm('حذف الحساب؟')) return;
+    await fetch(API + '/api/accounts/' + id, {method: 'DELETE'});
+    delete runningBots[id];
+    loadAccounts();
 }
-async function runBot(id) {
-alert('🚀 جاري التشغيل...');
-await fetch(API + '/api/run-bot/' + id, {method:'POST'});
-}
+
 loadAccounts();
 setInterval(loadAccounts, 5000);
 </script>
