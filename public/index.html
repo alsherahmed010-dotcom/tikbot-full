@@ -2,126 +2,106 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحكم TikBot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TikBot Dashboard</title>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            margin: 0;
-            padding: 20px;
-            font-size: 20px;
-            line-height: 1.8;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            padding: 15px;
+            font-size: 15px;
         }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 98%;
-        }
-        h1 {
-            color: #38bdf8;
-            font-size: 2.5rem;
+        .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #58a6ff;
+            font-size: 1.5rem;
         }
         .card {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            border: 1px solid #334155;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
         }
-        .form-group {
+        .card h2 {
+            font-size: 1.1rem;
+            color: #f0f6fc;
+            margin-bottom: 12px;
+        }
+        .add-box {
             display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        input, button {
-            font-size: 1.2rem !important;
-            padding: 14px 20px !important;
-            border-radius: 8px;
-            border: none;
+            flex-direction: column;
+            gap: 10px;
         }
         input {
-            flex: 1;
-            min-width: 250px;
-            background: #0f172a;
-            color: #fff;
-            border: 1px solid #334155;
-        }
-        button {
-            background-color: #0284c7;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
-        }
-        button:hover { opacity: 0.9; }
-        .btn-stop { background-color: #eab308; color: #000; }
-        .btn-start { background-color: #22c55e; }
-        .btn-delete { background-color: #ef4444; }
-        table {
             width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            font-size: 1.2rem;
-        }
-        th, td {
-            padding: 16px 20px;
-            text-align: right;
-            border-bottom: 1px solid #334155;
-        }
-        th {
-            background-color: #0f172a;
-            color: #38bdf8;
-            font-size: 1.3rem;
-        }
-        .badge {
-            background-color: #0284c7;
+            padding: 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
             color: #fff;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 1.1rem;
-            font-weight: bold;
+            font-size: 1rem;
+            outline: none;
         }
-        .status-active { color: #4ade80; font-weight: bold; }
-        .status-stopped { color: #f87171; font-weight: bold; }
-        .actions { display: flex; gap: 10px; }
+        input:focus { border-color: #58a6ff; }
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-add { background: #238636; color: white; }
+        .acc-item {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .acc-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .acc-name { font-weight: bold; color: #58a6ff; }
+        .acc-coins { background: #1f6feb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; }
+        .acc-status { font-size: 0.85rem; }
+        .status-run { color: #3fb950; }
+        .status-stop { color: #f85149; }
+        .acc-actions { display: flex; gap: 8px; margin-top: 5px; }
+        .acc-actions button { flex: 1; padding: 8px; font-size: 0.85rem; }
+        .btn-stop { background: #d29922; color: #000; }
+        .btn-start { background: #238636; color: #fff; }
+        .btn-del { background: #da3633; color: white; }
+        .empty { text-align: center; color: #8b949e; padding: 15px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🚀 لوحة تحكم TikBot التفاعلية</h1>
+    <div class="header">
+        <h1>🚀 TikBot Dashboard</h1>
+    </div>
 
-        <div class="card">
-            <h2>إضافة حساب جديد لتجميع النقاط</h2>
-            <form id="add-account-form" class="form-group" onsubmit="addAccount(event)">
-                <input type="text" id="username" placeholder="اسم المستخدم (مثال: username)" required>
-                <button type="submit">إضافة وبدء التجميع ➕</button>
-            </form>
-        </div>
+    <div class="card">
+        <h2>إضافة حساب جديد</h2>
+        <form class="add-box" onsubmit="addAccount(event)">
+            <input type="text" id="username" placeholder="اسم المستخدم (Username)" required>
+            <button type="submit" class="btn-add">إضافة وبدء التجميع ➕</button>
+        </form>
+    </div>
 
-        <div class="card">
-            <h2>قائمة الحسابات والنقاط الحالية</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>اسم الحساب</th>
-                        <th>النقاط المجمعة</th>
-                        <th>الحالة</th>
-                        <th>الإجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="accounts-list">
-                    <tr>
-                        <td colspan="4" style="text-align: center;">جاري تحميل البيانات...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+    <div class="card">
+        <h2>الحسابات الحالية</h2>
+        <div id="acc-list"><div class="empty">جاري تحميل البيانات...</div></div>
     </div>
 
     <script>
@@ -129,41 +109,41 @@
             try {
                 const res = await fetch('/api/accounts');
                 const data = await res.json();
-                const tbody = document.getElementById('accounts-list');
+                const list = document.getElementById('acc-list');
                 
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">لا توجد حسابات مضافة حالياً</td></tr>';
+                    list.innerHTML = '<div class="empty">لا توجد حسابات مضافة</div>';
                     return;
                 }
 
-                tbody.innerHTML = data.map(acc => `
-                    <tr>
-                        <td><b>@${acc.username}</b></td>
-                        <td><span class="badge">${acc.coins || 0} نقطة</span></td>
-                        <td>
+                list.innerHTML = data.map(acc => `
+                    <div class="acc-item">
+                        <div class="acc-info">
+                            <span class="acc-name">@${acc.username}</span>
+                            <span class="acc-coins">${acc.coins || 0} نقطة</span>
+                        </div>
+                        <div class="acc-status">
+                            الحالة: ${acc.status === 'running' 
+                                ? '<span class="status-run">شغال ويجمع 🟢</span>' 
+                                : '<span class="status-stop">متوقف 🔴</span>'}
+                        </div>
+                        <div class="acc-actions">
                             ${acc.status === 'running' 
-                                ? '<span class="status-active">شغال ويجمع 🟢</span>' 
-                                : '<span class="status-stopped">متوقف 🔴</span>'}
-                        </td>
-                        <td>
-                            <div class="actions">
-                                ${acc.status === 'running' 
-                                    ? `<button class="btn-stop" onclick="toggleStatus('${acc.id}', 'stop')">إيقاف التجميع ⏸️</button>`
-                                    : `<button class="btn-start" onclick="toggleStatus('${acc.id}', 'start')">تشغيل التجميع ▶️</button>`}
-                                <button class="btn-delete" onclick="deleteAccount('${acc.id}')">حذف الحساب 🗑️</button>
-                            </div>
-                        </td>
-                    </tr>
+                                ? `<button class="btn-stop" onclick="toggleStatus('${acc.id}', 'stop')">إيقاف ⏸️</button>`
+                                : `<button class="btn-start" onclick="toggleStatus('${acc.id}', 'start')">تشغيل ▶️</button>`}
+                            <button class="btn-del" onclick="deleteAccount('${acc.id}')">حذف 🗑️</button>
+                        </div>
+                    </div>
                 `).join('');
             } catch (e) {
-                console.error("Error loading accounts:", e);
+                console.error(e);
             }
         }
 
         async function addAccount(e) {
             e.preventDefault();
-            const usernameInput = document.getElementById('username');
-            const username = usernameInput.value.trim();
+            const input = document.getElementById('username');
+            const username = input.value.trim();
             if (!username) return;
 
             await fetch('/api/accounts', {
@@ -172,7 +152,7 @@
                 body: JSON.stringify({ username })
             });
 
-            usernameInput.value = '';
+            input.value = '';
             loadAccounts();
         }
 
@@ -182,13 +162,13 @@
         }
 
         async function deleteAccount(id) {
-            if (confirm('هل أنت تأكد من رغبتك في حذف هذا الحساب؟')) {
+            if (confirm('حذف هذا الحساب؟')) {
                 await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
                 loadAccounts();
             }
         }
 
-        setInterval(loadAccounts, 4000);
+        setInterval(loadAccounts, 3000);
         loadAccounts();
     </script>
 </body>

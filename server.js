@@ -1,87 +1,79 @@
 const express = require('express');
-const { exec } = require('child_process');
-const app = express();
-const cors = require('cors');
-const fs = require('fs');
+const { spawn } = require('child_process');
 const path = require('path');
+const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.static('public'));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 let accounts = [];
-if (fs.existsSync('accounts.json')) {
-    accounts = JSON.parse(fs.readFileSync('accounts.json', 'utf8'));
-}
+let processes = {};
 
-function saveAccounts() {
-    fs.writeFileSync('accounts.json', JSON.stringify(accounts, null, 2));
-}
-
-app.get('/', (req, res) => res.json({ status: 'running' }));
+app.get('/api/accounts', (req, res) => {
+    res.json(accounts);
+});
 
 app.post('/api/accounts', (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'Username required' });
     
-    const clean = username.replace('@', '').trim();
-    const exists = accounts.find(a => a.username === clean);
-    if (exists) return res.status(400).json({ error: 'Already exists' });
-    
-    const account = { id: Date.now(), username: clean, coins: 0, running: false };
-    accounts.push(account);
-    saveAccounts();
-    res.json({ success: true, account });
+    const id = Date.now().toString();
+    const newAccount = { id, username, coins: 0, status: 'running' };
+    accounts.push(newAccount);
+
+    // تشغيل ملف bot.py للحساب الجديد تلقائياً
+    const botProcess = spawn('python', ['bot.py', username, id]);
+    processes[id] = botProcess;
+
+    botProcess.stdout.on('data', (data) => console.log(`[Bot ${username}]: ${data}`));
+    botProcess.stderr.on('data', (data) => console.error(`[Bot ${username} Err]: ${data}`));
+
+    res.json(newAccount);
 });
 
-app.delete('/api/accounts/:id', (req, res) => {
-    accounts = accounts.filter(a => a.id !== parseInt(req.params.id));
-    saveAccounts();
-    res.json({ success: true });
-});
-
-app.get('/api/accounts', (req, res) => {
-    res.json({ success: true, accounts });
-});
-
-app.get('/api/total-coins', (req, res) => {
-    const total = accounts.reduce((sum, acc) => sum + (acc.coins || 0), 0);
-    res.json({ success: true, total });
-});
-
-app.post('/api/run-bot/:id', (req, res) => {
-    const account = accounts.find(a => a.id === parseInt(req.params.id));
-    if (!account) return res.status(404).json({ error: 'Not found' });
-    
-    account.running = true;
-    saveAccounts();
-    res.json({ success: true });
-    
-    const botPath = path.join(__dirname, 'bot.py');
-    exec(`python3 ${botPath} ${account.username} ${account.id}`, (err, stdout) => {
-        if (stdout) console.log(stdout);
-    });
-});
-
-app.post('/api/stop-bot/:id', (req, res) => {
-    const account = accounts.find(a => a.id === parseInt(req.params.id));
-    if (account) {
-        account.running = false;
-        saveAccounts();
+app.post('/api/update-coins/:id', (req, res) => {
+    const { id } = req.params;
+    const { coins } = req.body;
+    const acc = accounts.find(a => a.id === id);
+    if (acc) {
+        acc.coins = coins; // تحديث دقيق بدون مضاعفة
     }
     res.json({ success: true });
 });
 
-app.post('/api/update-coins/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const { coins } = req.body;
-    const account = accounts.find(a => a.id === id);
-    if (account) {
-        account.coins += parseInt(coins) || 0;
-        saveAccounts();
+app.post('/api/accounts/:id/stop', (req, res) => {
+    const { id } = req.params;
+    const acc = accounts.find(a => a.id === id);
+    if (acc) {
+        acc.status = 'stopped';
+        if (processes[id]) {
+            processes[id].kill();
+            delete processes[id];
+        }
+    }
+    res.json({ success: true });
+});
+
+app.post('/api/accounts/:id/start', (req, res) => {
+    const { id } = req.params;
+    const acc = accounts.find(a => a.id === id);
+    if (acc && acc.status !== 'running') {
+        acc.status = 'running';
+        const botProcess = spawn('python', ['bot.py', acc.username, id]);
+        processes[id] = botProcess;
+    }
+    res.json({ success: true });
+});
+
+app.delete('/api/accounts/:id', (req, res) => {
+    const { id } = req.params;
+    accounts = accounts.filter(a => a.id !== id);
+    if (processes[id]) {
+        processes[id].kill();
+        delete processes[id];
     }
     res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Server on ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
