@@ -45,26 +45,14 @@ def login(fid):
         pass
     return None
 
-def get_video(token, user_id):
+def get_coins(token):
     try:
-        resp = requests.get(f"{TIKSTAR_BASE}/videos/rand", params={"user_id": str(user_id)}, headers=get_headers(token), timeout=15)
+        resp = requests.get(f"{TIKSTAR_BASE}/user", params={"include": "account"}, headers=get_headers(token), timeout=15)
         if resp.status_code == 200:
             data = resp.json()
-            return data.get("id"), data.get("meta", {}).get("coins", 0)
+            return int(data.get("account", {}).get("amount", {}).get("amount", 0))
     except:
         pass
-    return None, 0
-
-def submit_view(token, post_id):
-    try:
-        resp = requests.post(f"{TIKSTAR_BASE}/viewvideos", data={"post_id": str(post_id)}, headers=get_headers(token), timeout=15)
-        print(f"Submit status: {resp.status_code}")
-        print(f"Submit response: {resp.text[:200]}")
-        if resp.status_code in (200, 201):
-            data = resp.json()
-            return int(data.get("amount", {}).get("amount", 0))
-    except Exception as e:
-        print(f"Submit error: {e}")
     return 0
 
 def main():
@@ -72,38 +60,36 @@ def main():
     account_id = sys.argv[2] if len(sys.argv) > 2 else "0"
     username = username.replace("@", "").strip()
     
-    fid, user_id = get_fid(username)
+    print(f"🚀 Starting for @{username}")
+    
+    fid, _ = get_fid(username)
     if not fid:
+        print("❌ Failed FID")
         return
     
     token = login(fid)
     if not token:
+        print("❌ Failed login")
         return
     
-    total = 0
-    delay = 10
-    
     while True:
-        video_id, video_coins = get_video(token, user_id)
-        if not video_id:
-            time.sleep(delay)
-            continue
-        
-        print(f"📹 Video: {video_id} (coins: {video_coins})")
-        time.sleep(10)  # نشوف الفيديو 10 ثواني
-        
-        earned = submit_view(token, video_id)
-        if earned > 0:
-            total += earned
-            print(f"✅ Earned: {earned} | Total: {total}")
-            try:
-                requests.post(f"http://localhost:8080/api/update-coins/{account_id}", json={"coins": earned}, timeout=5)
-            except:
-                pass
-        else:
-            print("❌ No coins")
-        
-        time.sleep(delay)
+        try:
+            coins = get_coins(token)
+            print(f"💰 Coins: {coins}")
+            
+            # تحديث السيرفر
+            requests.post(
+                f"http://localhost:8080/api/update-coins/{account_id}",
+                json={"coins": coins},
+                timeout=5
+            )
+            
+            time.sleep(30)
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(10)
 
 if __name__ == "__main__":
     main()
