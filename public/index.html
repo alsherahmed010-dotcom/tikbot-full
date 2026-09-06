@@ -10,37 +10,23 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #0d1117;
             color: #c9d1d9;
-            padding: 10px;
-            font-size: 14px;
+            padding: 12px;
+            font-size: 15px;
         }
-        .header {
-            text-align: center;
-            margin: 10px 0;
-        }
-        .header h1 {
-            color: #58a6ff;
-            font-size: 1.3rem;
-        }
+        .header { text-align: center; margin: 10px 0 15px 0; }
+        .header h1 { color: #58a6ff; font-size: 1.4rem; }
         .card {
             background: #161b22;
             border: 1px solid #30363d;
             border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
         }
-        .card h2 {
-            font-size: 1rem;
-            color: #f0f6fc;
-            margin-bottom: 8px;
-        }
-        .add-box {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .card h2 { font-size: 1.05rem; color: #f0f6fc; margin-bottom: 10px; }
+        .add-box { display: flex; flex-direction: column; gap: 10px; }
         input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             background: #0d1117;
             border: 1px solid #30363d;
             border-radius: 6px;
@@ -50,10 +36,10 @@
         }
         input:focus { border-color: #58a6ff; }
         button {
-            padding: 10px;
+            padding: 12px;
             border: none;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-weight: bold;
             cursor: pointer;
         }
@@ -61,29 +47,25 @@
         .acc-item {
             background: #0d1117;
             border: 1px solid #30363d;
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 8px;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
-        .acc-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .acc-name { font-weight: bold; color: #58a6ff; font-size: 0.95rem; }
-        .acc-coins { background: #1f6feb; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8rem; }
-        .acc-status { font-size: 0.8rem; }
-        .status-run { color: #3fb950; }
-        .status-stop { color: #f85149; }
-        .acc-actions { display: flex; gap: 6px; margin-top: 4px; }
-        .acc-actions button { flex: 1; padding: 6px; font-size: 0.8rem; }
+        .acc-info { display: flex; justify-content: space-between; align-items: center; }
+        .acc-name { font-weight: bold; color: #58a6ff; font-size: 1rem; }
+        .acc-coins { background: #1f6feb; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.85rem; }
+        .acc-status { font-size: 0.85rem; }
+        .status-run { color: #3fb950; font-weight: bold; }
+        .status-stopped { color: #f85149; font-weight: bold; }
+        .acc-actions { display: flex; gap: 8px; margin-top: 5px; }
+        .acc-actions button { flex: 1; padding: 8px; font-size: 0.85rem; }
         .btn-stop { background: #d29922; color: #000; }
         .btn-start { background: #238636; color: #fff; }
         .btn-del { background: #da3633; color: white; }
-        .empty { text-align: center; color: #8b949e; padding: 10px; }
+        .empty { text-align: center; color: #8b949e; padding: 15px; }
     </style>
 </head>
 <body>
@@ -94,7 +76,7 @@
     <div class="card">
         <h2>إضافة حساب جديد</h2>
         <form class="add-box" onsubmit="addAccount(event)">
-            <input type="text" id="username" placeholder="اكتب اسم المستخدم هنا..." required autocomplete="off">
+            <input type="text" id="username" placeholder="اكتب اسم المستخدم (Username)..." required autocomplete="off">
             <button type="submit" class="btn-add">إضافة وبدء التجميع ➕</button>
         </form>
     </div>
@@ -146,14 +128,18 @@
             const username = input.value.trim();
             if (!username) return;
 
-            await fetch('/api/accounts', {
+            const res = await fetch('/api/accounts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username })
             });
 
-            input.value = '';
-            loadAccounts();
+            if (res.ok) {
+                input.value = '';
+                loadAccounts();
+            } else {
+                alert('حدث خطأ أو الحساب مضاف مسبقاً');
+            }
         }
 
         async function toggleStatus(id, action) {

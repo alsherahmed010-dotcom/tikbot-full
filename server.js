@@ -4,6 +4,7 @@ const path = require('path');
 const app = express();
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 let accounts = [];
@@ -14,19 +15,27 @@ app.get('/api/accounts', (req, res) => {
 });
 
 app.post('/api/accounts', (req, res) => {
-    const { username } = req.body;
+    const username = req.body.username;
     if (!username) return res.status(400).json({ error: 'Username required' });
     
+    // التحقق إن الحساب مش مضاف قبل كده
+    if (accounts.some(acc => acc.username === username)) {
+        return res.status(400).json({ error: 'Account already exists' });
+    }
+
     const id = Date.now().toString();
-    const newAccount = { id, username, coins: 0, status: 'running' };
+    const newAccount = { id, username: username.trim(), coins: 0, status: 'running' };
     accounts.push(newAccount);
 
-    // تشغيل ملف bot.py للحساب الجديد تلقائياً
-    const botProcess = spawn('python', ['bot.py', username, id]);
-    processes[id] = botProcess;
+    try {
+        const botProcess = spawn('python', ['bot.py', username, id]);
+        processes[id] = botProcess;
 
-    botProcess.stdout.on('data', (data) => console.log(`[Bot ${username}]: ${data}`));
-    botProcess.stderr.on('data', (data) => console.error(`[Bot ${username} Err]: ${data}`));
+        botProcess.stdout.on('data', (data) => console.log(`[Bot ${username}]: ${data}`));
+        botProcess.stderr.on('data', (data) => console.error(`[Bot ${username} Err]: ${data}`));
+    } catch (e) {
+        console.error('Error starting python bot:', e);
+    }
 
     res.json(newAccount);
 });
@@ -36,7 +45,7 @@ app.post('/api/update-coins/:id', (req, res) => {
     const { coins } = req.body;
     const acc = accounts.find(a => a.id === id);
     if (acc) {
-        acc.coins = coins; // تحديث دقيق بدون مضاعفة
+        acc.coins = Number(coins);
     }
     res.json({ success: true });
 });
@@ -59,8 +68,10 @@ app.post('/api/accounts/:id/start', (req, res) => {
     const acc = accounts.find(a => a.id === id);
     if (acc && acc.status !== 'running') {
         acc.status = 'running';
-        const botProcess = spawn('python', ['bot.py', acc.username, id]);
-        processes[id] = botProcess;
+        try {
+            const botProcess = spawn('python', ['bot.py', acc.username, id]);
+            processes[id] = botProcess;
+        } catch (e) {}
     }
     res.json({ success: true });
 });
