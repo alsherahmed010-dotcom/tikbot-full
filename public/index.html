@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TikBot Dashboard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -10,37 +10,37 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #0d1117;
             color: #c9d1d9;
-            padding: 15px;
-            font-size: 15px;
+            padding: 10px;
+            font-size: 14px;
         }
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            margin: 10px 0;
         }
         .header h1 {
             color: #58a6ff;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
         }
         .card {
             background: #161b22;
             border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
         }
         .card h2 {
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: #f0f6fc;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         .add-box {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
         input {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background: #0d1117;
             border: 1px solid #30363d;
             border-radius: 6px;
@@ -50,10 +50,10 @@
         }
         input:focus { border-color: #58a6ff; }
         button {
-            padding: 12px;
+            padding: 10px;
             border: none;
             border-radius: 6px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: bold;
             cursor: pointer;
         }
@@ -61,29 +61,29 @@
         .acc-item {
             background: #0d1117;
             border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
         .acc-info {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .acc-name { font-weight: bold; color: #58a6ff; }
-        .acc-coins { background: #1f6feb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; }
-        .acc-status { font-size: 0.85rem; }
+        .acc-name { font-weight: bold; color: #58a6ff; font-size: 0.95rem; }
+        .acc-coins { background: #1f6feb; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.8rem; }
+        .acc-status { font-size: 0.8rem; }
         .status-run { color: #3fb950; }
         .status-stop { color: #f85149; }
-        .acc-actions { display: flex; gap: 8px; margin-top: 5px; }
-        .acc-actions button { flex: 1; padding: 8px; font-size: 0.85rem; }
+        .acc-actions { display: flex; gap: 6px; margin-top: 4px; }
+        .acc-actions button { flex: 1; padding: 6px; font-size: 0.8rem; }
         .btn-stop { background: #d29922; color: #000; }
         .btn-start { background: #238636; color: #fff; }
         .btn-del { background: #da3633; color: white; }
-        .empty { text-align: center; color: #8b949e; padding: 15px; }
+        .empty { text-align: center; color: #8b949e; padding: 10px; }
     </style>
 </head>
 <body>
@@ -94,13 +94,13 @@
     <div class="card">
         <h2>إضافة حساب جديد</h2>
         <form class="add-box" onsubmit="addAccount(event)">
-            <input type="text" id="username" placeholder="اسم المستخدم (Username)" required>
+            <input type="text" id="username" placeholder="اكتب اسم المستخدم هنا..." required autocomplete="off">
             <button type="submit" class="btn-add">إضافة وبدء التجميع ➕</button>
         </form>
     </div>
 
     <div class="card">
-        <h2>الحسابات الحالية</h2>
+        <h2>الحسابات المضافة</h2>
         <div id="acc-list"><div class="empty">جاري تحميل البيانات...</div></div>
     </div>
 
@@ -112,7 +112,7 @@
                 const list = document.getElementById('acc-list');
                 
                 if (!data || data.length === 0) {
-                    list.innerHTML = '<div class="empty">لا توجد حسابات مضافة</div>';
+                    list.innerHTML = '<div class="empty">لا توجد حسابات مضافة حالياً</div>';
                     return;
                 }
 
@@ -125,7 +125,7 @@
                         <div class="acc-status">
                             الحالة: ${acc.status === 'running' 
                                 ? '<span class="status-run">شغال ويجمع 🟢</span>' 
-                                : '<span class="status-stop">متوقف 🔴</span>'}
+                                : '<span class="status-stopped">متوقف 🔴</span>'}
                         </div>
                         <div class="acc-actions">
                             ${acc.status === 'running' 
@@ -162,7 +162,7 @@
         }
 
         async function deleteAccount(id) {
-            if (confirm('حذف هذا الحساب؟')) {
+            if (confirm('هل تريد حذف هذا الحساب؟')) {
                 await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
                 loadAccounts();
             }
