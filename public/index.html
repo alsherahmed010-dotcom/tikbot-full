@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>⚡ SPAM TOOL</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Cairo',sans-serif}
+body{background:#0a0a0a;color:#fff;min-height:100vh;padding:20px}
+.container{max-width:600px;margin:0 auto}
+h1{color:#0f0;text-align:center;margin-bottom:5px;text-shadow:0 0 20px #0f0}
+.sub{text-align:center;color:#888;font-size:12px;margin-bottom:20px}
+.server-bar{background:#111;padding:12px;border-radius:10px;margin-bottom:15px;display:flex;gap:8px}
+.server-bar input{flex:1;padding:10px;background:#000;border:1px solid #333;border-radius:8px;color:#0f0;font-size:12px}
+.server-bar button{padding:10px 20px;background:#0f0;color:#000;border:none;border-radius:8px;font-weight:bold;cursor:pointer}
+.tabs{display:flex;gap:8px;margin-bottom:15px}
+.tab{flex:1;padding:14px;background:#111;border:2px solid #333;border-radius:10px;cursor:pointer;text-align:center;font-weight:bold}
+.tab.active{background:#0f0;color:#000;border-color:#0f0}
+.tab.tg.active{background:#08c;color:#fff;border-color:#08c}
+.card{background:#111;border:1px solid #333;border-radius:12px;padding:18px;margin-bottom:15px}
+.status{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:#f00}
+.dot.on{background:#0f0;animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.3}}
+input,textarea{width:100%;padding:12px;margin:5px 0;background:#000;border:1px solid #333;border-radius:8px;color:#fff;font-size:14px;font-family:inherit}
+textarea{min-height:70px}
+button.act{width:100%;padding:14px;background:#0f0;color:#000;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px}
+button.act:disabled{opacity:.5}
+button.blue{background:#08c;color:#fff}
+.code-box{background:#000;border:2px dashed #0f0;padding:15px;border-radius:10px;text-align:center;margin:10px 0;display:none}
+.code-box.show{display:block}
+.code-box .code{font-size:28px;color:#ff0;font-weight:bold;letter-spacing:3px;font-family:monospace}
+.progress{height:10px;background:#21262d;border-radius:5px;overflow:hidden;margin-top:10px;display:none}
+.progress.show{display:block}
+.fill{height:100%;width:0%;background:linear-gradient(90deg,#0f0,#ff0);transition:.3s}
+.info{color:#888;font-size:12px;margin-top:10px;text-align:center}
+.groups{max-height:200px;overflow-y:auto;background:#000;border-radius:8px;padding:10px;margin-top:10px;display:none}
+.groups.show{display:block}
+.groups div{padding:8px;border-bottom:1px solid #222;cursor:pointer;font-size:13px}
+.groups div:hover{background:#1a1a1a;color:#0f0}
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>⚡ SPAM TOOL</h1>
+    <p class="sub">WhatsApp + Telegram Web Panel</p>
+    <div class="server-bar">
+        <input type="text" id="serverUrl" placeholder="https://your-server.railway.app">
+        <button onclick="reconnect()">🔌 اتصال</button>
+    </div>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('wa')">📱 WhatsApp</div>
+        <div class="tab tg" onclick="switchTab('tg')">✈️ Telegram</div>
+    </div>
+    <div id="waPanel">
+        <div class="card">
+            <div class="status"><span class="dot" id="waDot"></span><span id="waStatus">غير متصل</span></div>
+            <input type="text" id="waPhone" placeholder="📱 رقمك (201012345678)">
+            <button class="act" onclick="waConnect()">🔑 ربط واتساب</button>
+            <div class="code-box" id="waCodeBox">
+                <div>🔑 كود الربط:</div>
+                <div class="code" id="waCode">----</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3 style="color:#0f0">🚀 سبام واتساب</h3>
+            <input type="text" id="waTarget" placeholder="📱 رقم الهدف">
+            <textarea id="waMsg">Hello!</textarea>
+            <input type="number" id="waCount" value="10">
+            <button class="act" id="waSendBtn" onclick="waSend()">⚡ إرسال</button>
+            <div class="progress" id="waProg"><div class="fill" id="waFill"></div></div>
+            <div class="info" id="waProgText"></div>
+        </div>
+        <div class="card">
+            <h3 style="color:#0f0">📋 الجروبات</h3>
+            <button class="act" onclick="waGroups()">🔄 جلب</button>
+            <div class="groups" id="waGroupsList"></div>
+        </div>
+    </div>
+    <div id="tgPanel" style="display:none">
+        <div class="card">
+            <div class="status"><span class="dot" id="tgDot"></span><span id="tgStatus">غير متصل</span></div>
+            <input type="text" id="tgApiId" placeholder="📱 API ID">
+            <input type="text" id="tgApiHash" placeholder="🔑 API Hash">
+            <input type="text" id="tgPhone" placeholder="📱 رقمك">
+            <button class="act blue" onclick="tgConnect()">🔑 ربط تليجرام</button>
+        </div>
+        <div class="card">
+            <h3 style="color:#08c">🚀 سبام تليجرام</h3>
+            <input type="text" id="tgTarget" placeholder="👤 @username">
+            <textarea id="tgMsg">Hello!</textarea>
+            <input type="number" id="tgCount" value="10">
+            <button class="act blue" id="tgSendBtn" onclick="tgSend()">⚡ إرسال</button>
+            <div class="progress" id="tgProg"><div class="fill" id="tgFill"></div></div>
+            <div class="info" id="tgProgText"></div>
+        </div>
+        <div class="card">
+            <h3 style="color:#08c">📋 الجروبات</h3>
+            <button class="act blue" onclick="tgGroups()">🔄 جلب</button>
+            <div class="groups" id="tgGroupsList"></div>
+        </div>
+    </div>
+</div>
+<script>
+let socket = null;
+function reconnect() {
+    const url = document.getElementById('serverUrl').value.trim();
+    if (!url) return alert('اكتب رابط السيرفر');
+    if (socket) socket.disconnect();
+    socket = io(url, { transports: ['websocket', 'polling'] });
+    setup();
+}
+function setup() {
+    socket.on('wa-status', (st) => {
+        const d = document.getElementById('waDot'), t = document.getElementById('waStatus');
+        if (st === 'connected') { d.classList.add('on'); t.textContent = '✅ متصل'; }
+        else { d.classList.remove('on'); t.textContent = '❌ غير متصل'; }
+    });
+    socket.on('tg-status', (st) => {
+        const d = document.getElementById('tgDot'), t = document.getElementById('tgStatus');
+        if (st === 'connected') { d.classList.add('on'); t.textContent = '✅ متصل'; }
+        else { d.classList.remove('on'); t.textContent = '❌ غير متصل'; }
+    });
+    socket.on('wa-code', (c) => { document.getElementById('waCodeBox').classList.add('show'); document.getElementById('waCode').textContent = c; });
+    socket.on('wa-progress', (d) => { document.getElementById('waFill').style.width = (d.sent/d.total*100)+'%'; document.getElementById('waProgText').textContent = d.sent+'/'+d.total; });
+    socket.on('wa-done', (s) => { document.getElementById('waSendBtn').disabled = false; alert('✅ '+s); });
+    socket.on('wa-groups-list', (gs) => { const e = document.getElementById('waGroupsList'); e.classList.add('show'); e.innerHTML = gs.map(g => '<div onclick="document.getElementById(\'waTarget\').value=\''+g.id+'\'">📌 '+g.name+'</div>').join(''); });
+    socket.on('tg-progress', (d) => { document.getElementById('tgFill').style.width = (d.sent/d.total*100)+'%'; document.getElementById('tgProgText').textContent = d.sent+'/'+d.total; });
+    socket.on('tg-done', (s) => { document.getElementById('tgSendBtn').disabled = false; alert('✅ '+s); });
+    socket.on('tg-groups-list', (gs) => { const e = document.getElementById('tgGroupsList'); e.classList.add('show'); e.innerHTML = gs.map(g => '<div onclick="document.getElementById(\'tgTarget\').value=\''+g.id+'\'">📌 '+g.name+'</div>').join(''); });
+    socket.on('error', (m) => alert('❌ '+m));
+}
+function switchTab(t) {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    if (t === 'wa') { document.querySelectorAll('.tab')[0].classList.add('active'); document.getElementById('waPanel').style.display = 'block'; document.getElementById('tgPanel').style.display = 'none'; }
+    else { document.querySelectorAll('.tab')[1].classList.add('active'); document.getElementById('waPanel').style.display = 'none'; document.getElementById('tgPanel').style.display = 'block'; }
+}
+function waConnect() { const p = document.getElementById('waPhone').value.trim(); if (p) socket.emit('wa-connect', p); }
+function waSend() { const n = document.getElementById('waTarget').value.trim(); const m = document.getElementById('waMsg').value; const c = parseInt(document.getElementById('waCount').value); if (!n||!m||!c) return alert('املأ'); document.getElementById('waSendBtn').disabled = true; document.getElementById('waProg').classList.add('show'); socket.emit('wa-spam', { number: n, message: m, count: c }); }
+function waGroups() { socket.emit('wa-groups'); }
+function tgConnect() { const a = document.getElementById('tgApiId').value.trim(); const h = document.getElementById('tgApiHash').value.trim(); const p = document.getElementById('tgPhone').value.trim(); if (a&&h&&p) socket.emit('tg-connect', { apiId: a, apiHash: h, phone: p }); }
+function tgSend() { const t = document.getElementById('tgTarget').value.trim(); const m = document.getElementById('tgMsg').value; const c = parseInt(document.getElementById('tgCount').value); if (!t||!m||!c) return alert('املأ'); document.getElementById('tgSendBtn').disabled = true; document.getElementById('tgProg').classList.add('show'); socket.emit('tg-spam', { target: t, message: m, count: c }); }
+function tgGroups() { socket.emit('tg-groups'); }
+</script>
+</body>
+</html>
