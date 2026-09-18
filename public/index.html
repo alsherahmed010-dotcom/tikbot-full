@@ -3,215 +3,341 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>⚡ PURPLE HACK v8.0</title>
+<title>⚡ PURPLE HACK v9.0</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,'Segoe UI',sans-serif}
-body{background:#0a0512;color:#e0d0ff;min-height:100vh;padding:12px;direction:rtl}
-.wrap{max-width:560px;margin:0 auto}
-h1{text-align:center;font-size:22px;padding:14px 0 6px;color:#b847ff}
-.sub{text-align:center;font-size:11px;color:#7a6b99;margin-bottom:14px}
-input,textarea,button{font-family:inherit;font-size:14px}
-input,textarea{width:100%;padding:12px;background:#15092a;border:1px solid #2a1b4e;border-radius:10px;color:#e0d0ff;margin-bottom:8px;outline:none;direction:ltr;text-align:left}
-input:focus,textarea:focus{border-color:#b847ff}
-input::placeholder,textarea::placeholder{direction:rtl;text-align:right;color:#5a4a7a}
-textarea{min-height:60px;resize:vertical}
-.b{width:100%;padding:14px;background:#b847ff;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;margin-bottom:8px;transition:.15s}
-.b:hover{background:#c95fff}
-.b:active{transform:scale(.98)}
-.b.blue{background:#0088ff}.b.blue:hover{background:#1a99ff}
-.b.gray{background:#2a1b4e;color:#a090c0}.b.gray:hover{background:#3a2b5e}
-.b.red{background:#c92040}.b.red:hover{background:#e03050}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Courier New','Consolas',monospace}
+@font-face{font-family:'Matrix';src:local('Courier New')}
+:root{
+  --bg:#000;--bg2:#0a0015;--card:#0d0018;--card2:#15002a;
+  --line:#1a0033;--line2:#2a0050;--p:#b847ff;--p2:#ff47b8;--cy:#00ffd5;
+  --gr:#00ff41;--err:#ff003c;--wn:#ffb800;--txt:#c8b3ff;--dim:#6a4a99
+}
+body{background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;direction:rtl;position:relative}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(circle at 15% 10%,rgba(184,71,255,.15) 0%,transparent 40%),
+  radial-gradient(circle at 85% 90%,rgba(0,255,213,.12) 0%,transparent 40%),
+  repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(184,71,255,.02) 2px,rgba(184,71,255,.02) 4px);
+  pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--cy),transparent);animation:scan 4s linear infinite;z-index:100;pointer-events:none;box-shadow:0 0 20px var(--cy);opacity:.6}
+@keyframes scan{0%{top:0}100%{top:100vh}}
+.wrap{max-width:1100px;margin:0 auto;padding:16px;position:relative;z-index:1}
+
+/* HEADER */
+.hd{text-align:center;padding:14px 0 20px;position:relative}
+.hd h1{font-size:34px;font-weight:900;letter-spacing:6px;color:var(--p);
+  text-shadow:0 0 10px var(--p),0 0 30px var(--p),0 0 60px var(--p2);
+  animation:glitch 3s infinite;font-family:'Courier New',monospace}
+.hd h1 span{color:var(--cy);text-shadow:0 0 10px var(--cy),0 0 30px var(--cy)}
+@keyframes glitch{0%,100%{filter:none}48%{filter:none}49%{transform:translate(2px,-1px);filter:hue-rotate(20deg)}50%{transform:translate(-2px,1px);filter:hue-rotate(-20deg)}51%{transform:none}}
+.hd .info{font-size:11px;color:var(--dim);letter-spacing:3px;margin-top:6px;text-transform:uppercase}
+.hd .info::before{content:'> ';color:var(--cy)}
+
+/* STATUS BAR */
+.bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,.8);border:1px solid var(--line2);border-radius:6px;margin-bottom:14px;font-size:11px;letter-spacing:1px;flex-wrap:wrap;gap:8px}
+.bar .it{display:flex;align-items:center;gap:6px;color:var(--dim)}
+.bar .it b{color:var(--cy);font-weight:bold}
+.bar .dot{width:8px;height:8px;border-radius:50%;background:var(--err);box-shadow:0 0 8px var(--err);animation:blink 1.5s infinite}
+.bar .dot.on{background:var(--gr);box-shadow:0 0 10px var(--gr)}
+@keyframes blink{50%{opacity:.4}}
+
+/* TABS */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.tab{padding:16px;background:var(--card);border:2px solid var(--line2);border-radius:8px;text-align:center;cursor:pointer;font-weight:900;color:var(--dim);font-size:15px;letter-spacing:2px;transition:.2s;position:relative;overflow:hidden;font-family:'Courier New',monospace}
+.tab::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(184,71,255,.15),transparent);transform:translateX(-100%);transition:.5s}
+.tab:hover::before{transform:translateX(100%)}
+.tab:hover{border-color:var(--p);color:var(--p)}
+.tab.active{background:linear-gradient(135deg,rgba(184,71,255,.2),rgba(255,71,184,.2));border-color:var(--p);color:#fff;box-shadow:0 0 30px rgba(184,71,255,.5),inset 0 0 30px rgba(184,71,255,.1)}
+.tab.tg.active{background:linear-gradient(135deg,rgba(0,255,213,.15),rgba(0,136,255,.15));border-color:var(--cy);box-shadow:0 0 30px rgba(0,255,213,.5),inset 0 0 30px rgba(0,255,213,.1)}
+
+/* GRID LAYOUT */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid.full{grid-template-columns:1fr}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:18px;position:relative;overflow:hidden;box-shadow:inset 0 0 40px rgba(0,0,0,.6),0 0 20px rgba(184,71,255,.05)}
+.card::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--p),transparent);opacity:.7}
+.card::after{content:'';position:absolute;bottom:0;right:0;width:60px;height:60px;background:linear-gradient(135deg,transparent,rgba(184,71,255,.08));pointer-events:none}
+.card h3{font-size:13px;font-weight:900;color:var(--p);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px dashed var(--line2);padding-bottom:10px}
+.card h3::before{content:'// ';color:var(--cy);margin-left:4px}
+.card h3 .badge{font-size:10px;padding:3px 10px;border-radius:3px;background:rgba(255,0,60,.15);color:var(--err);border:1px solid rgba(255,0,60,.4);letter-spacing:1px;font-weight:900}
+.card h3 .badge.on{background:rgba(0,255,65,.15);color:var(--gr);border-color:rgba(0,255,65,.4);box-shadow:0 0 15px rgba(0,255,65,.3)}
+.card h3 .badge.warn{background:rgba(255,184,0,.15);color:var(--wn);border-color:rgba(255,184,0,.4)}
+
+/* INPUTS */
+input,textarea,select{width:100%;padding:12px 14px;background:#050010;border:1px solid var(--line2);border-radius:6px;color:var(--cy);font-size:13px;margin-bottom:8px;outline:none;direction:ltr;text-align:left;font-family:'Courier New',monospace;transition:.2s;letter-spacing:.5px}
+input:focus,textarea:focus{border-color:var(--p);background:#08001a;box-shadow:0 0 0 1px var(--p),0 0 15px rgba(184,71,255,.3)}
+input::placeholder,textarea::placeholder{direction:rtl;text-align:right;color:var(--dim);opacity:.7;letter-spacing:1px}
+textarea{min-height:70px;resize:vertical;line-height:1.5}
+label.fld{display:block;font-size:10px;color:var(--dim);letter-spacing:2px;margin-bottom:4px;text-transform:uppercase}
+label.fld::before{content:'└─ ';color:var(--cy)}
+
+/* BUTTONS */
+.b{width:100%;padding:13px;background:linear-gradient(135deg,rgba(184,71,255,.15),rgba(255,71,184,.15));color:var(--p);border:1px solid var(--p);border-radius:6px;font-weight:900;cursor:pointer;font-size:12px;letter-spacing:2px;text-transform:uppercase;transition:.2s;position:relative;overflow:hidden;font-family:'Courier New',monospace;margin-bottom:6px}
+.b:hover{background:linear-gradient(135deg,var(--p),var(--p2));color:#000;box-shadow:0 0 25px rgba(184,71,255,.6);transform:translateY(-1px)}
+.b:active{transform:translateY(0)}
+.b.blue{color:var(--cy);border-color:var(--cy);background:linear-gradient(135deg,rgba(0,255,213,.1),rgba(0,136,255,.1))}
+.b.blue:hover{background:linear-gradient(135deg,var(--cy),#0088ff);color:#000;box-shadow:0 0 25px rgba(0,255,213,.6)}
+.b.red{color:var(--err);border-color:var(--err);background:rgba(255,0,60,.08)}
+.b.red:hover{background:var(--err);color:#fff;box-shadow:0 0 25px rgba(255,0,60,.6)}
+.b.gray{color:var(--dim);border-color:var(--line2);background:rgba(0,0,0,.5)}
+.b.gray:hover{color:var(--p);border-color:var(--p);background:rgba(184,71,255,.08);box-shadow:none}
+.b:disabled{opacity:.3;cursor:not-allowed}
+
 .row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
-.row button{margin:0;padding:10px;font-size:12px}
-.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
-.tab{padding:12px;background:#15092a;border:1px solid #2a1b4e;border-radius:10px;text-align:center;cursor:pointer;font-weight:700;color:#7a6b99;font-size:13px;transition:.15s}
-.tab.active{background:#b847ff;color:#fff;border-color:#b847ff}
-.tab.tg.active{background:#0088ff;border-color:#0088ff}
-.card{background:#15092a;border:1px solid #2a1b4e;border-radius:12px;padding:14px;margin-bottom:10px}
-.card h3{font-size:14px;margin-bottom:12px;color:#b847ff;display:flex;justify-content:space-between;align-items:center}
-.card h3 .st{font-size:11px;font-weight:normal;padding:3px 8px;border-radius:100px;background:#2a1b4e;color:#7a6b99}
-.card h3 .st.on{background:#1a5c2e;color:#00ff95}
-.card h3 .st.warn{background:#5c4a1a;color:#ffbb33}
-.msg{padding:10px;border-radius:8px;font-size:12px;margin:8px 0;text-align:center;display:none}
+.row button{margin:0}
+
+/* MSG */
+.msg{padding:10px 14px;border-radius:6px;font-size:11px;margin:8px 0;text-align:center;display:none;border:1px solid;letter-spacing:1px;font-weight:900;text-transform:uppercase}
 .msg.show{display:block}
-.msg.ok{background:rgba(0,255,149,.1);color:#00ff95}
-.msg.err{background:rgba(255,46,92,.1);color:#ff5c85}
-.msg.warn{background:rgba(255,187,51,.1);color:#ffbb33}
-.code{background:#0a0512;border:1px dashed #b847ff;padding:16px;border-radius:10px;text-align:center;margin:8px 0;display:none}
-.code.show{display:block}
-.code .val{font-size:26px;font-weight:900;color:#b847ff;letter-spacing:3px;direction:ltr;font-family:monospace}
-.code .lbl{font-size:10px;color:#7a6b99;margin-bottom:6px;letter-spacing:2px}
-.groups{max-height:280px;overflow-y:auto;margin-top:8px;display:none}
+.msg.ok{background:rgba(0,255,65,.08);color:var(--gr);border-color:rgba(0,255,65,.4);box-shadow:0 0 15px rgba(0,255,65,.15)}
+.msg.err{background:rgba(255,0,60,.08);color:var(--err);border-color:rgba(255,0,60,.4);box-shadow:0 0 15px rgba(255,0,60,.15)}
+.msg.warn{background:rgba(255,184,0,.08);color:var(--wn);border-color:rgba(255,184,0,.4);box-shadow:0 0 15px rgba(255,184,0,.15)}
+
+/* CODE */
+.code{background:#000;border:2px dashed var(--p);padding:20px;border-radius:8px;text-align:center;margin:10px 0;display:none;position:relative;overflow:hidden}
+.code.show{display:block;animation:slideIn .4s}
+.code::before{content:'';position:absolute;inset:0;background:radial-gradient(circle,rgba(184,71,255,.2),transparent 70%);pointer-events:none}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+.code .lbl{font-size:10px;color:var(--dim);letter-spacing:4px;margin-bottom:8px;text-transform:uppercase}
+.code .val{font-size:32px;font-weight:900;color:var(--p);letter-spacing:8px;direction:ltr;text-shadow:0 0 20px var(--p),0 0 40px var(--p2);font-family:'Courier New',monospace;position:relative;z-index:1;animation:pulseCode 1.5s infinite}
+@keyframes pulseCode{50%{text-shadow:0 0 30px var(--p),0 0 60px var(--p2),0 0 100px var(--cy)}}
+.code .hint{font-size:10px;color:var(--dim);margin-top:10px;letter-spacing:1px}
+
+/* GROUPS */
+.groups{max-height:280px;overflow-y:auto;margin-top:8px;display:none;padding:4px;background:#050010;border-radius:6px;border:1px solid var(--line)}
 .groups.show{display:block}
-.gi{display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0a0512;border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:12px}
-.gi:hover{background:#1a0d3a}
-.gi .cn{font-size:10px;background:#2a1b4e;color:#b847ff;padding:2px 8px;border-radius:100px;margin-left:6px}
-.media-lbl{display:block;padding:14px;background:#0a0512;border:2px dashed #2a1b4e;border-radius:10px;text-align:center;cursor:pointer;margin-bottom:8px;transition:.15s}
-.media-lbl:hover{border-color:#b847ff;background:#1a0d3a}
-.media-lbl .ic{font-size:22px}
-.media-lbl .tx{font-size:11px;color:#7a6b99;margin-top:4px}
-.mi{display:flex;justify-content:space-between;align-items:center;padding:8px;background:#0a0512;border-radius:8px;margin-bottom:4px;font-size:11px;gap:6px}
-.mi .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mi input[type=number]{width:44px;margin:0;padding:4px;font-size:11px;text-align:center}
-.mi button{background:#c92040;color:#fff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;margin:0;width:auto}
-.jobs{margin-top:10px}
-.ji{background:#0a0512;border:1px solid #2a1b4e;border-radius:10px;padding:12px;margin-bottom:6px}
-.ji .hdr{display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;color:#7a6b99}
-.ji .hdr .t{color:#b847ff;font-weight:700}
-.ji .tgt{font-size:12px;color:#fff;font-family:monospace;direction:ltr;text-align:right;margin-bottom:6px;word-break:break-all}
-.ji .pg{height:4px;background:#15092a;border-radius:2px;overflow:hidden}
-.ji .pf{height:100%;background:#b847ff;transition:width .2s}
-.ji .stats{display:flex;justify-content:space-between;font-size:11px;color:#7a6b99;margin-bottom:6px}
-.ji .stats b{color:#b847ff}
-.ji.done .pf{background:#00ff95}
-.modal{position:fixed;inset:0;background:rgba(10,5,18,.95);z-index:1000;display:none;padding:10px}
+.groups::-webkit-scrollbar{width:6px}
+.groups::-webkit-scrollbar-thumb{background:var(--p);border-radius:3px}
+.groups::-webkit-scrollbar-track{background:var(--bg2)}
+.gi{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--card2);border:1px solid var(--line2);border-radius:5px;margin-bottom:4px;cursor:pointer;font-size:12px;transition:.2s;position:relative}
+.gi::before{content:'▸ ';color:var(--cy);opacity:0;transition:.2s}
+.gi:hover{background:linear-gradient(90deg,rgba(184,71,255,.1),transparent);border-color:var(--p);padding-right:16px}
+.gi:hover::before{opacity:1}
+.gi .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.gi .cn{font-size:10px;background:rgba(184,71,255,.2);color:var(--p);padding:2px 8px;border-radius:3px;margin-left:8px;border:1px solid rgba(184,71,255,.3);font-weight:900}
+.gi .ic{color:var(--p);margin-right:8px;font-size:14px}
+
+/* MEDIA */
+.media-lbl{display:block;padding:14px;background:#050010;border:2px dashed var(--line2);border-radius:8px;text-align:center;cursor:pointer;margin-bottom:8px;transition:.2s}
+.media-lbl:hover{border-color:var(--p);background:rgba(184,71,255,.05);box-shadow:inset 0 0 25px rgba(184,71,255,.1)}
+.media-lbl .ic{font-size:24px;color:var(--p)}
+.media-lbl .tx{font-size:11px;color:var(--dim);margin-top:6px;letter-spacing:1px}
+.mi{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#050010;border:1px solid var(--line2);border-radius:5px;margin-bottom:4px;font-size:11px;gap:6px}
+.mi .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.mi input[type=number]{width:44px;margin:0;padding:4px;font-size:11px;text-align:center;border-radius:4px}
+.mi button{background:rgba(255,0,60,.15);color:var(--err);border:1px solid rgba(255,0,60,.4);padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin:0;width:auto;font-weight:900}
+.mi button:hover{background:var(--err);color:#fff}
+
+/* JOBS */
+.jobs{margin-top:14px}
+.ji{background:#050010;border:1px solid var(--line2);border-radius:6px;padding:12px;margin-bottom:6px;position:relative;overflow:hidden}
+.ji::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--p)}
+.ji.done::before{background:var(--gr)}
+.ji.stopped::before{background:var(--wn)}
+.ji .hdr{display:flex;justify-content:space-between;font-size:10px;margin-bottom:6px;letter-spacing:1px;text-transform:uppercase}
+.ji .hdr .t{color:var(--p);font-weight:900}
+.ji .hdr .s{color:var(--dim)}
+.ji .tgt{font-size:12px;color:var(--cy);direction:ltr;text-align:right;margin-bottom:6px;font-family:'Courier New',monospace;word-break:break-all}
+.ji .stats{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:6px}
+.ji .stats b{color:var(--p);font-weight:900}
+.ji .stats .f{color:var(--err)}
+.ji .pg{height:4px;background:var(--bg2);border-radius:2px;overflow:hidden}
+.ji .pf{height:100%;background:linear-gradient(90deg,var(--p),var(--p2));transition:width .3s;box-shadow:0 0 10px var(--p)}
+.ji.done .pf{background:var(--gr);box-shadow:0 0 10px var(--gr)}
+.jstop{background:var(--err);color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:900;letter-spacing:1px}
+.empty{text-align:center;color:var(--dim);padding:24px;font-size:11px;letter-spacing:2px;text-transform:uppercase}
+.empty::before{content:'[ ';color:var(--cy)}
+.empty::after{content:' ]';color:var(--cy)}
+
+/* CHAT MODAL */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.95);backdrop-filter:blur(10px);z-index:1000;display:none;padding:12px}
 .modal.show{display:flex;align-items:center;justify-content:center}
-.chat{width:100%;max-width:520px;height:85vh;background:#15092a;border:1px solid #2a1b4e;border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
-.chat-hd{padding:12px;background:#0a0512;border-bottom:1px solid #2a1b4e;display:flex;justify-content:space-between;align-items:center}
-.chat-hd .ti{color:#fff;font-size:13px;font-weight:700;flex:1;overflow:hidden}
-.chat-hd .cn{color:#7a6b99;font-size:10px;margin-top:2px}
-.chat-hd .x{background:#c92040;color:#fff;border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-weight:700}
-.chat-bd{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px}
-.m{max-width:80%;padding:8px 12px;border-radius:12px;font-size:12px;line-height:1.4;word-wrap:break-word}
-.m.them{background:#2a1b4e;align-self:flex-start;border-bottom-left-radius:3px}
-.m.me{background:#b847ff;color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
-.m .sn{font-size:10px;font-weight:700;opacity:.7;margin-bottom:2px}
-.m .tm{font-size:9px;opacity:.6;margin-top:3px;text-align:left;direction:ltr}
-.chat-ft{padding:8px;background:#0a0512;border-top:1px solid #2a1b4e;display:flex;gap:6px}
-.chat-ft input{flex:1;margin:0;padding:10px;font-size:12px}
-.chat-ft input[type=number]{width:50px;flex:0 0 50px;text-align:center}
-.chat-ft button{background:#b847ff;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:700;margin:0;width:auto}
-.empty{text-align:center;color:#5a4a7a;padding:20px;font-size:12px}
+.chat{width:100%;max-width:600px;height:88vh;background:#050010;border:1px solid var(--p);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 60px rgba(184,71,255,.4),inset 0 0 60px rgba(184,71,255,.05)}
+.chat-hd{padding:14px 16px;background:linear-gradient(90deg,rgba(184,71,255,.15),transparent);border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center}
+.chat-hd .ti{flex:1;color:var(--cy);font-size:13px;font-weight:900;letter-spacing:1px}
+.chat-hd .cn{color:var(--dim);font-size:10px;margin-top:3px;letter-spacing:1px}
+.chat-hd .x{background:rgba(255,0,60,.15);color:var(--err);border:1px solid var(--err);width:32px;height:32px;border-radius:6px;cursor:pointer;font-weight:900}
+.chat-hd .x:hover{background:var(--err);color:#fff}
+.chat-bd{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#000}
+.chat-bd::-webkit-scrollbar{width:6px}
+.chat-bd::-webkit-scrollbar-thumb{background:var(--p);border-radius:3px}
+.m{max-width:80%;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.4;word-wrap:break-word;border:1px solid;font-family:'Courier New',monospace}
+.m.them{background:#0a0018;color:var(--cy);align-self:flex-start;border-color:var(--line2);border-bottom-left-radius:2px}
+.m.them::before{content:'< ';color:var(--gr);font-weight:900}
+.m.me{background:linear-gradient(135deg,rgba(184,71,255,.2),rgba(255,71,184,.2));color:#fff;align-self:flex-end;border-color:var(--p);border-bottom-right-radius:2px}
+.m.me::before{content:'> ';color:var(--p2);font-weight:900}
+.m .sn{font-size:10px;font-weight:900;opacity:.7;margin-bottom:3px;letter-spacing:1px}
+.m .tm{font-size:9px;opacity:.5;margin-top:3px;text-align:left;direction:ltr;letter-spacing:1px}
+.chat-ft{padding:10px;background:#050010;border-top:1px solid var(--line2);display:flex;gap:6px}
+.chat-ft input{margin:0;padding:10px}
+.chat-ft input[type=number]{width:52px;text-align:center;flex:0 0 52px}
+.chat-ft button{background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:900;margin:0;width:auto;letter-spacing:1px}
+.chat-ft button:hover{box-shadow:0 0 20px var(--p)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--p);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--p2)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>⚡ PURPLE HACK</h1>
-  <div class="sub">v8.0 · أقصى سرعة</div>
-
-  <input type="text" id="sessionInput" placeholder="🆔 Session ID...">
-  <button class="b" onclick="registerSession()">🔌 اتصال</button>
-
-  <div class="row">
-    <button class="b gray" onclick="waReconnect()">🔄 إعادة الاتصال</button>
-    <button class="b red" onclick="wipeSessions()">🗑️ مسح الكل</button>
+  <!-- HEADER -->
+  <div class="hd">
+    <h1>⚡PURPLE <span>HACK</span>⚡</h1>
+    <div class="info">root@purple:~# ./spam_tool v9.0 --unleashed</div>
   </div>
 
-  <div class="msg" id="sessionStatus"></div>
+  <!-- STATUS BAR -->
+  <div class="bar">
+    <div class="it"><span class="dot" id="sbDot"></span> <b>STATUS:</b> <span id="sbStatus">OFFLINE</span></div>
+    <div class="it"><b>SESSION:</b> <span id="sbSession">none</span></div>
+    <div class="it"><b>CONN:</b> <span id="sbConn">idle</span></div>
+  </div>
 
+  <!-- TABS -->
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('wa')">📱 واتساب</div>
-    <div class="tab tg" onclick="switchTab('tg')">✈️ تليجرام</div>
+    <div class="tab active" onclick="switchTab('wa')">📱 WHATSAPP</div>
+    <div class="tab tg" onclick="switchTab('tg')">✈️ TELEGRAM</div>
   </div>
 
-  <!-- WhatsApp -->
+  <!-- WhatsApp Panel -->
   <div id="waPanel">
-    <div class="card">
-      <h3>ربط الواتساب <span class="st" id="waSt">غير متصل</span></h3>
-      <div id="waConn">
-        <input type="text" id="waPhone" placeholder="📱 رقمك (201012345678)">
+    <div class="grid">
+      <!-- LEFT: Connect -->
+      <div class="card">
+        <h3>Connect <span class="badge" id="waBadge">OFFLINE</span></h3>
+        <label class="fld">Session ID</label>
+        <input type="text" id="sessionInput" placeholder="اكتب Session ID واضغط دخول...">
+        <button class="b" onclick="registerSession()">🔓 دخول</button>
+        <div class="row">
+          <button class="b blue" onclick="waReconnect()">🔄 إعادة الاتصال</button>
+          <button class="b red" onclick="wipeSessions()">🗑️ مسح الكل</button>
+        </div>
+        <label class="fld">Phone Number</label>
+        <input type="text" id="waPhone" placeholder="201012345678">
         <button class="b" onclick="waConnect()">🔑 طلب كود الربط</button>
         <button class="b gray" onclick="waLogout()">🚪 تسجيل الخروج</button>
-        <div class="code" id="waCodeBox"><div class="lbl">🔑 كود الربط</div><div class="val" id="waCode">----</div></div>
+        <div class="code" id="waCodeBox">
+          <div class="lbl">🔑 PAIRING CODE</div>
+          <div class="val" id="waCode">----</div>
+          <div class="hint">WhatsApp → Linked Devices → Link with Phone Number</div>
+        </div>
         <div class="msg" id="waCodeMsg"></div>
+        <div class="msg" id="sessionStatus"></div>
       </div>
-    </div>
 
-    <div class="card">
-      <h3>🚀 إرسال نصوص (أقصى سرعة)</h3>
-      <input type="text" id="waTarget" placeholder="📱 رقم أو @g.us">
-      <textarea id="waMsg" placeholder="💬 الرسالة">Hello!</textarea>
-      <input type="number" id="waCount" value="10" placeholder="🔢 العدد">
-      <button class="b" onclick="waSend()">⚡ انطلق (30 متوازي للرقم)</button>
-    </div>
-
-    <div class="card">
-      <h3>🎬 صور وفيديوهات</h3>
-      <label for="waMediaFile" class="media-lbl">
-        <div class="ic">📎</div>
-        <div class="tx" id="waMName">اختر ملفات (متعدد)</div>
-      </label>
-      <input type="file" id="waMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="pickMedia('wa',this)">
-      <div id="waMList" style="display:none;max-height:180px;overflow-y:auto"></div>
-      <div class="row">
-        <input type="number" id="waMRep" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
-        <input type="text" id="waMCap" placeholder="تعليق" style="margin:0">
+      <!-- RIGHT: Send -->
+      <div class="card">
+        <h3>Text Blast</h3>
+        <label class="fld">Target (رقم أو @g.us)</label>
+        <input type="text" id="waTarget" placeholder="201234567890">
+        <label class="fld">Message</label>
+        <textarea id="waMsg" placeholder="اكتب رسالتك هنا...">Hello from PURPLE HACK!</textarea>
+        <label class="fld">Count</label>
+        <input type="number" id="waCount" value="10" min="1">
+        <button class="b" onclick="waSend()">⚡ إرسال (30 متوازي)</button>
       </div>
-      <button class="b" onclick="sendMedia('wa')" style="margin-top:8px">🎬 إرسال (<span id="waMTot">0</span>)</button>
-    </div>
 
-    <div class="card">
-      <h3>👥 الجروبات</h3>
-      <button class="b gray" onclick="waGroups()">🔄 جلب الجروبات</button>
-      <div class="groups" id="waGroupsList"></div>
+      <!-- MEDIA -->
+      <div class="card">
+        <h3>Media Blast</h3>
+        <label for="waMediaFile" class="media-lbl">
+          <div class="ic">📎</div>
+          <div class="tx" id="waMName">اضغط لاختيار صور/فيديو (متعدد)</div>
+        </label>
+        <input type="file" id="waMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="pickMedia('wa',this)">
+        <div id="waMList" style="display:none;max-height:200px;overflow-y:auto"></div>
+        <div class="row">
+          <input type="number" id="waMRep" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
+          <input type="text" id="waMCap" placeholder="تعليق..." style="margin:0">
+        </div>
+        <button class="b" onclick="sendMedia('wa')" style="margin-top:8px">🎬 إرسال (<span id="waMTot">0</span>)</button>
+      </div>
+
+      <!-- GROUPS -->
+      <div class="card">
+        <h3>Groups</h3>
+        <button class="b gray" onclick="waGroups()">🔄 جلب الجروبات</button>
+        <div class="groups" id="waGroupsList"></div>
+      </div>
     </div>
   </div>
 
-  <!-- Telegram -->
+  <!-- Telegram Panel -->
   <div id="tgPanel" style="display:none">
-    <div class="card">
-      <h3>ربط التليجرام <span class="st" id="tgSt">غير متصل</span></h3>
-      <div id="tgConn">
-        <input type="text" id="tgPhone" placeholder="📱 رقمك">
-        <button class="b blue" onclick="tgConnect()">📩 إرسال كود</button>
+    <div class="grid">
+      <div class="card">
+        <h3>Connect <span class="badge" id="tgBadge">OFFLINE</span></h3>
+        <label class="fld">Phone Number</label>
+        <input type="text" id="tgPhone" placeholder="201012345678">
+        <button class="b blue" onclick="tgConnect()">📩 إرسال كود التحقق</button>
         <button class="b gray" onclick="tgLogout()">🚪 تسجيل الخروج</button>
-        <input type="text" id="tgCode" placeholder="📩 كود التحقق" style="display:none">
+        <label class="fld">Verification Code</label>
+        <input type="text" id="tgCode" placeholder="12345" style="display:none">
         <button class="b blue" id="tgVB" onclick="tgVerify()" style="display:none">✅ تأكيد</button>
-        <input type="text" id="tgPass" placeholder="🔐 2FA" style="display:none">
+        <label class="fld">2FA Password</label>
+        <input type="text" id="tgPass" placeholder="••••••" style="display:none">
         <button class="b blue" id="tgPB" onclick="tgPassSubmit()" style="display:none">✅ تأكيد</button>
         <div class="msg" id="tgMsg"></div>
       </div>
-    </div>
 
-    <div class="card">
-      <h3>🚀 إرسال نصوص</h3>
-      <input type="text" id="tgTarget" placeholder="👤 @username">
-      <textarea id="tgMsgIn" placeholder="💬 الرسالة">Hello!</textarea>
-      <input type="number" id="tgCount" value="10" placeholder="🔢 العدد">
-      <button class="b blue" onclick="tgSend()">⚡ انطلق (5 متوازي)</button>
-    </div>
-
-    <div class="card">
-      <h3>🎬 صور وفيديوهات</h3>
-      <label for="tgMediaFile" class="media-lbl">
-        <div class="ic">📎</div>
-        <div class="tx" id="tgMName">اختر ملفات (متعدد)</div>
-      </label>
-      <input type="file" id="tgMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="pickMedia('tg',this)">
-      <div id="tgMList" style="display:none;max-height:180px;overflow-y:auto"></div>
-      <div class="row">
-        <input type="number" id="tgMRep" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
-        <input type="text" id="tgMCap" placeholder="تعليق" style="margin:0">
+      <div class="card">
+        <h3>Text Blast</h3>
+        <label class="fld">Target (@username / ID)</label>
+        <input type="text" id="tgTarget" placeholder="@username">
+        <label class="fld">Message</label>
+        <textarea id="tgMsgIn" placeholder="اكتب رسالتك هنا...">Hello from PURPLE HACK!</textarea>
+        <label class="fld">Count</label>
+        <input type="number" id="tgCount" value="10" min="1">
+        <button class="b blue" onclick="tgSend()">⚡ إرسال (5 متوازي)</button>
       </div>
-      <button class="b blue" onclick="sendMedia('tg')" style="margin-top:8px">🎬 إرسال (<span id="tgMTot">0</span>)</button>
-    </div>
 
-    <div class="card">
-      <h3>👥 الجروبات</h3>
-      <button class="b gray" onclick="tgGroups()">🔄 جلب</button>
-      <div class="groups" id="tgGroupsList"></div>
+      <div class="card">
+        <h3>Media Blast</h3>
+        <label for="tgMediaFile" class="media-lbl">
+          <div class="ic">📎</div>
+          <div class="tx" id="tgMName">اضغط لاختيار صور/فيديو (متعدد)</div>
+        </label>
+        <input type="file" id="tgMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="pickMedia('tg',this)">
+        <div id="tgMList" style="display:none;max-height:200px;overflow-y:auto"></div>
+        <div class="row">
+          <input type="number" id="tgMRep" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
+          <input type="text" id="tgMCap" placeholder="تعليق..." style="margin:0">
+        </div>
+        <button class="b blue" onclick="sendMedia('tg')" style="margin-top:8px">🎬 إرسال (<span id="tgMTot">0</span>)</button>
+      </div>
+
+      <div class="card">
+        <h3>Groups</h3>
+        <button class="b gray" onclick="tgGroups()">🔄 جلب الجروبات</button>
+        <div class="groups" id="tgGroupsList"></div>
+      </div>
     </div>
   </div>
 
-  <!-- Jobs -->
-  <div class="card">
-    <h3>📊 العمليات <button class="b gray" style="width:auto;padding:4px 10px;font-size:11px;margin:0" onclick="clearJobs()">مسح</button></h3>
+  <!-- JOBS -->
+  <div class="card" style="margin-top:14px">
+    <h3>Active Jobs <span class="badge" id="jobsBadge">0</span> <button class="b gray" style="width:auto;padding:4px 10px;font-size:10px;margin:0" onclick="clearJobs()">مسح</button></h3>
     <div class="jobs" id="jobsList"><div class="empty">لا توجد عمليات</div></div>
   </div>
 </div>
 
+<!-- CHAT MODAL -->
 <div class="modal" id="waModal">
   <div class="chat">
     <div class="chat-hd">
-      <div><div class="ti" id="waChatTitle">جروب</div><div class="cn" id="waChatCount">—</div></div>
+      <div><div class="ti" id="waChatTitle">📱 Group</div><div class="cn" id="waChatCount">—</div></div>
       <button class="x" onclick="closeChat()">✕</button>
     </div>
-    <div class="chat-bd" id="waChatMsgs"><div class="empty">⏳ جاري التحميل...</div></div>
+    <div class="chat-bd" id="waChatMsgs"><div class="empty">LOADING</div></div>
     <div class="chat-ft">
-      <input type="text" id="waChatInput" placeholder="اكتب..." onkeypress="if(event.key==='Enter')sendChat()">
+      <input type="text" id="waChatInput" placeholder="اكتب رسالة..." onkeypress="if(event.key==='Enter')sendChat()">
       <input type="number" id="waChatCount2" value="1" min="1">
-      <button onclick="sendChat()">📤</button>
+      <button onclick="sendChat()">SEND</button>
     </div>
   </div>
 </div>
@@ -223,7 +349,18 @@ const mediaFiles = { wa:[], tg:[] };
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmtSize(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(2)+'MB';}
-function showMsg(id,txt,type){const e=document.getElementById(id);e.textContent=txt;e.className='msg show '+type;}
+function showMsg(id,txt,type){const e=document.getElementById(id);if(!e)return;e.textContent=txt;e.className='msg show '+type;}
+
+function updateStatusBar(){
+  const dot=document.getElementById('sbDot');
+  const s=document.getElementById('sbStatus');
+  const sc=document.getElementById('sbSession');
+  const cc=document.getElementById('sbConn');
+  sc.textContent=currentSession||'none';
+  if(window._waState==='connected'){dot.classList.add('on');s.textContent='ONLINE';cc.textContent='WA:CONNECTED';}
+  else if(window._waState==='reconnecting'||window._waState==='connecting'){dot.classList.remove('on');s.textContent='BUSY';cc.textContent='WA:CONNECTING';}
+  else{dot.classList.remove('on');s.textContent='OFFLINE';cc.textContent='WA:'+(window._waState||'offline').toUpperCase();}
+}
 
 function registerSession(){
   const s=document.getElementById('sessionInput').value.trim();
@@ -231,31 +368,30 @@ function registerSession(){
   currentSession=s;localStorage.setItem('session_id',s);
   socket.emit('register-session',s);
   showMsg('sessionStatus','✅ متصل بـ '+s,'ok');
+  updateStatusBar();
 }
 window.addEventListener('load',()=>{const s=localStorage.getItem('session_id');if(s){document.getElementById('sessionInput').value=s;registerSession();}});
 socket.on('connect',()=>{if(currentSession)socket.emit('register-session',currentSession);});
 
-function setWASt(st,txt){
-  const e=document.getElementById('waSt');e.textContent=txt;e.className='st';
-  if(st==='connected')e.classList.add('on');
-  else if(st==='pending')e.classList.add('warn');
-}
-function setTGSt(st,txt){
-  const e=document.getElementById('tgSt');e.textContent=txt;e.className='st';
-  if(st==='connected')e.classList.add('on');
-  else if(st==='pending')e.classList.add('warn');
+function setBadge(id,st,txt){
+  const e=document.getElementById(id);
+  e.textContent=txt;e.className='badge';
+  if(st==='on')e.classList.add('on');
+  else if(st==='warn')e.classList.add('warn');
 }
 
 socket.on('wa-status',(s)=>{
-  if(s==='connected')setWASt('connected','✅ متصل');
-  else if(s==='connecting')setWASt('pending','🔄 يتصل...');
-  else if(s==='reconnecting')setWASt('pending','🔄 إعادة...');
-  else if(s==='session_exists')setWASt('pending','🔑 جلسة موجودة');
-  else if(s==='logged_out')setWASt('off','🚪 خروج');
-  else setWASt('off','❌ غير متصل');
+  window._waState=s;
+  if(s==='connected'){setBadge('waBadge','on','ONLINE');}
+  else if(s==='connecting'){setBadge('waBadge','warn','CONNECTING');}
+  else if(s==='reconnecting'){setBadge('waBadge','warn','RECONNECTING');}
+  else if(s==='session_exists'){setBadge('waBadge','warn','SESSION FOUND');}
+  else if(s==='logged_out'){setBadge('waBadge','','LOGGED OUT');}
+  else setBadge('waBadge','','OFFLINE');
+  updateStatusBar();
 });
 socket.on('wa-code',(c)=>{document.getElementById('waCodeBox').classList.add('show');document.getElementById('waCode').textContent=c;});
-socket.on('wa-code-status',(m)=>{showMsg('waCodeMsg',m,m.includes('❌')?'err':'ok');});
+socket.on('wa-code-status',(m)=>{showMsg('waCodeMsg',m,m.includes('❌')?'err':m.includes('✅')?'ok':'warn');});
 
 // MEDIA
 async function pickMedia(platform, inp){
@@ -274,8 +410,8 @@ function renderMedia(platform){
   const list=document.getElementById(platform+'MList');
   const nameEl=document.getElementById(platform+'MName');
   const totalEl=document.getElementById(platform+'MTot');
-  if(!fs.length){list.style.display='none';nameEl.textContent='اختر ملفات (متعدد)';totalEl.textContent='0';return;}
-  nameEl.textContent='✅ '+fs.length+' ملف';
+  if(!fs.length){list.style.display='none';nameEl.textContent='اضغط لاختيار صور/فيديو (متعدد)';totalEl.textContent='0';return;}
+  nameEl.textContent='✅ '+fs.length+' ملف مختار';
   list.style.display='block';
   let tot=0;
   list.innerHTML=fs.map((f,i)=>{
@@ -304,9 +440,9 @@ function sendMedia(platform){
 socket.on('wa-groups-list',(gs)=>{
   const el=document.getElementById('waGroupsList');el.classList.add('show');
   if(!gs.length){el.innerHTML='<div class="empty">لا توجد جروبات</div>';return;}
-  el.innerHTML=gs.map(g=>`<div class="gi" data-gid="${g.id}" onclick="openChat('${g.id}','${g.name.replace(/'/g,"\\'")}')"><span>📌 ${esc(g.name)}</span><span><span class="cn">${g.count||0}</span>💬</span></div>`).join('');
+  el.innerHTML=gs.map(g=>`<div class="gi" data-gid="${g.id}" onclick="openChat('${g.id}','${g.name.replace(/'/g,"\\'")}')"><span class="nm">📌 ${esc(g.name)}</span><span><span class="cn">${g.count||0}</span><span class="ic">💬</span></span></div>`).join('');
 });
-function openChat(gid,name){currentChatGid=gid;document.getElementById('waChatTitle').textContent=name;document.getElementById('waChatCount').textContent='...';document.getElementById('waChatMsgs').innerHTML='<div class="empty">⏳ تحميل...</div>';document.getElementById('waModal').classList.add('show');socket.emit('wa-group-messages',gid);}
+function openChat(gid,name){currentChatGid=gid;document.getElementById('waChatTitle').textContent=name;document.getElementById('waChatCount').textContent='loading...';document.getElementById('waChatMsgs').innerHTML='<div class="empty">LOADING</div>';document.getElementById('waModal').classList.add('show');socket.emit('wa-group-messages',gid);}
 function closeChat(){document.getElementById('waModal').classList.remove('show');currentChatGid=null;}
 socket.on('wa-group-messages-list',(d)=>{
   if(d.groupId!==currentChatGid)return;
@@ -344,9 +480,9 @@ socket.on('wa-cache-update',(gs)=>{
 
 // TG
 socket.on('tg-status',(s)=>{
-  if(s==='connected')setTGSt('connected','✅ متصل');
-  else if(s==='connecting')setTGSt('pending','🔄...');
-  else setTGSt('off','❌ غير متصل');
+  if(s==='connected')setBadge('tgBadge','on','ONLINE');
+  else if(s==='connecting')setBadge('tgBadge','warn','CONNECTING');
+  else setBadge('tgBadge','','OFFLINE');
 });
 socket.on('tg-code-status',(m)=>showMsg('tgMsg',m,m.includes('❌')?'err':'ok'));
 socket.on('tg-need-code',()=>{document.getElementById('tgCode').style.display='block';document.getElementById('tgVB').style.display='block';});
@@ -354,7 +490,7 @@ socket.on('tg-need-password',()=>{document.getElementById('tgPass').style.displa
 socket.on('tg-groups-list',(gs)=>{
   const el=document.getElementById('tgGroupsList');el.classList.add('show');
   if(!gs.length){el.innerHTML='<div class="empty">لا توجد</div>';return;}
-  el.innerHTML=gs.map(g=>`<div class="gi" onclick="document.getElementById('tgTarget').value='${g.id}'"><span>📌 ${esc(g.name)}</span><span>↗</span></div>`).join('');
+  el.innerHTML=gs.map(g=>`<div class="gi" onclick="document.getElementById('tgTarget').value='${g.id}'"><span class="nm">📌 ${esc(g.name)}</span><span class="ic">↗</span></div>`).join('');
 });
 socket.on('logout-done',(t)=>alert('✅ تم الخروج من '+t));
 
@@ -362,12 +498,13 @@ socket.on('logout-done',(t)=>alert('✅ تم الخروج من '+t));
 socket.on('jobs-update',(jobs)=>{
   const list=document.getElementById('jobsList');
   const mine=jobs.filter(j=>j.sessionId===currentSession);
+  document.getElementById('jobsBadge').textContent=mine.filter(j=>j.status==='running').length;
   if(!mine.length){list.innerHTML='<div class="empty">لا توجد عمليات</div>';return;}
   list.innerHTML=mine.map(j=>{
     const pct=Math.round(j.sent/j.count*100);
-    const st={running:'جاري',done:'انتهى',stopped:'متوقف',error:'خطأ'}[j.status]||j.status;
-    const sb=j.status==='running'?`<button class="b red" style="width:auto;padding:3px 8px;font-size:10px;margin:0;float:left" onclick="stopJob('${j.id}')">⏹</button>`:'';
-    return `<div class="ji ${j.status}"><div class="hdr"><span class="t">${j.type}</span><span>${st} ${sb}</span></div><div class="tgt">${j.target}</div><div class="stats"><span>✉️ <b>${j.sent}</b>/${j.count}</span><span>❌ ${j.failed}</span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div></div>`;
+    const st={running:'RUNNING',done:'DONE',stopped:'STOPPED',error:'ERROR'}[j.status]||j.status;
+    const sb=j.status==='running'?`<button class="jstop" onclick="stopJob('${j.id}')">STOP</button>`:'';
+    return `<div class="ji ${j.status}"><div class="hdr"><span class="t">${j.type}</span><span class="s">${st} ${sb}</span></div><div class="tgt">${j.target}</div><div class="stats"><span>✉️ <b>${j.sent}</b>/${j.count}</span><span>❌ <span class="f">${j.failed}</span></span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div></div>`;
   }).join('');
 });
 socket.on('error',(m)=>alert('❌ '+m));
