@@ -7,54 +7,68 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, { 
+    cors: { origin: '*' },
+    pingTimeout: 120000,
+    pingInterval: 25000
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { TelegramClient } = require('telegram');
 const { StringSession } = require('telegram/sessions');
+const { Api } = require('telegram');
 
-// ============ Global State ============
+// ═══════════ Telegram API (Your Credentials) ═══════════
+const TG_API_ID = 38231139;
+const TG_API_HASH = '8c6f63a727badd926100bdf80b0566fc';
+
+// ═══════════ Global State ═══════════
 let waSocket = null, waConnected = false, waState = null;
 let tgClient = null, tgConnected = false;
 let pendingTG = {};
 
-// ============ WhatsApp ============
+// ═══════════ WhatsApp ═══════════
 async function initWA() {
-    const { state, saveCreds } = await useMultiFileAuthState('wa_auth');
-    waState = state;
-    const { version } = await fetchLatestBaileysVersion();
+    try {
+        const { state, saveCreds } = await useMultiFileAuthState('wa_auth');
+        waState = state;
+        const { version } = await fetchLatestBaileysVersion();
 
-    waSocket = makeWASocket({
-        version, auth: state, printQRInTerminal: false,
-        logger: pino({ level: 'silent' }),
-        browser: ["Ubuntu", "Chrome", "20.0.0"],
-        syncFullHistory: false
-    });
+        waSocket = makeWASocket({
+            version, auth: state, printQRInTerminal: false,
+            logger: pino({ level: 'silent' }),
+            browser: ["Ubuntu", "Chrome", "20.0.0"],
+            syncFullHistory: false,
+            connectTimeoutMs: 120000,
+            defaultQueryTimeoutMs: 120000
+        });
 
-    waSocket.ev.on('creds.update', saveCreds);
+        waSocket.ev.on('creds.update', saveCreds);
 
-    waSocket.ev.on('connection.update', (u) => {
-        if (u.connection === 'open') {
-            waConnected = true;
-            io.emit('wa-status', 'connected');
-            console.log('✅ WhatsApp Connected');
-        } else if (u.connection === 'close') {
-            waConnected = false;
-            io.emit('wa-status', 'disconnected');
-            const code = (u.lastDisconnect?.error)?.output?.statusCode;
-            console.log('❌ WA Closed, code:', code);
-            if (code !== DisconnectReason.loggedOut) {
-                setTimeout(() => initWA(), 5000);
+        waSocket.ev.on('connection.update', (u) => {
+            if (u.connection === 'open') {
+                waConnected = true;
+                io.emit('wa-status', 'connected');
+                console.log('✅ WA Connected');
+            } else if (u.connection === 'close') {
+                waConnected = false;
+                io.emit('wa-status', 'disconnected');
+                const code = (u.lastDisconnect?.error)?.output?.statusCode;
+                if (code !== DisconnectReason.loggedOut) {
+                    setTimeout(() => initWA(), 5000);
+                }
             }
-        }
-    });
+        });
+    } catch(e) {
+        console.log('WA init error:', e.message);
+    }
 }
 
 async function requestWACode(phone) {
     try {
         if (!waSocket) await initWA();
-        if (waState.creds.registered) return { error: 'already registered' };
+        if (waState.creds.registered) return { error: 'Already registered' };
         const clean = phone.replace(/\D/g, '');
         const code = await waSocket.requestPairingCode(clean);
         return { code: code.match(/.{1,4}/g).join('-') };
@@ -63,71 +77,66 @@ async function requestWACode(phone) {
     }
 }
 
-// ============ Telegram ============
-async function initTG(apiId, apiHash, phone, sessionSocket) {
+// ═══════════ Telegram (Your API) ═══════════
+async function initTG(phone, socket) {
     try {
         let ss = '';
         try { ss = fs.readFileSync('tg_session.txt', 'utf8'); } catch(e) {}
 
-        tgClient = new TelegramClient(new StringSession(ss), parseInt(apiId), apiHash, {
-            connectionRetries: 3,
-            useWSS: true
+        tgClient = new TelegramClient(new StringSession(ss), TG_API_ID, TG_API_HASH, {
+            connectionRetries: 5,
+            useWSS: true,
+            timeout: 120000
         });
 
-        // Manual login flow (بدون input library)
         await tgClient.connect();
 
-        if (!await tgClient.checkAuthorization()) {
-            // 1. Send code
-            const result = await tgClient.invoke(
-                new (require('telegram').Api.auth.SendCode)({
-                    phoneNumber: phone,
-                    apiId: parseInt(apiId),
-                    apiHash: apiHash,
-                    settings: new (require('telegram').Api.CodeSettings)({
-                        allowFlashCall: false,
-                        currentNumber: false,
-                        allowAppHash: true
-                    })
-                })
-            );
-
-            pendingTG[phone] = {
-                phoneCodeHash: result.phoneCodeHash,
-                apiId, apiHash, phone
-            };
-
-            sessionSocket.emit('tg-need-code', 'تم إرسال الكود - أدخله في الأسفل');
-            return { needCode: true };
-        } else {
+        if (await tgClient.checkAuthorization()) {
             tgConnected = true;
-            fs.writeFileSync('tg_session.txt', tgClient.session.save());
-            sessionSocket.emit('tg-status', 'connected');
-            io.emit('tg-status', 'connected');
-            return { success: true };
+            socket.emit('tg-status', 'connected');
+            socket.emit('tg-code-status', '✅ Session موجود - متصل بالفعل!');
+            return { alreadyConnected: true };
         }
+
+        // Send code
+        const result = await tgClient.invoke(new Api.auth.SendCode({
+            phoneNumber: phone,
+            apiId: TG_API_ID,
+            apiHash: TG_API_HASH,
+            settings: new Api.CodeSettings({
+                allowFlashCall: false,
+                currentNumber: false,
+                allowAppHash: true
+            })
+        }));
+
+        pendingTG[phone] = {
+            phoneCodeHash: result.phoneCodeHash,
+            phone
+        };
+
+        socket.emit('tg-code-status', '📩 تم إرسال كود على تليجرام');
+        socket.emit('tg-need-code', 'أدخل كود التحقق');
+        return { needCode: true };
     } catch(e) {
-        console.log('TG Error:', e.message);
         return { error: e.message };
     }
 }
 
-async function verifyTGCode(phone, code) {
+async function verifyTGCode(phone, code, socket) {
     try {
-        if (!pendingTG[phone]) return { error: 'no pending login' };
-        const { phoneCodeHash, apiId, apiHash } = pendingTG[phone];
+        if (!pendingTG[phone]) return { error: 'No pending login' };
+        const { phoneCodeHash } = pendingTG[phone];
 
         try {
-            await tgClient.invoke(
-                new (require('telegram').Api.auth.SignIn)({
-                    phoneNumber: phone,
-                    phoneCodeHash: phoneCodeHash,
-                    phoneCode: code
-                })
-            );
+            await tgClient.invoke(new Api.auth.SignIn({
+                phoneNumber: phone,
+                phoneCodeHash: phoneCodeHash,
+                phoneCode: code
+            }));
         } catch(e) {
             if (e.message && e.message.includes('SESSION_PASSWORD_NEEDED')) {
-                pendingTG[phone].needPassword = true;
+                socket.emit('tg-need-password', '🔐 أدخل كلمة سر 2FA');
                 return { needPassword: true };
             }
             throw e;
@@ -136,45 +145,43 @@ async function verifyTGCode(phone, code) {
         tgConnected = true;
         fs.writeFileSync('tg_session.txt', tgClient.session.save());
         delete pendingTG[phone];
-        io.emit('tg-status', 'connected');
+        socket.emit('tg-status', 'connected');
+        socket.emit('tg-code-status', '✅ تم الاتصال بنجاح!');
         return { success: true };
     } catch(e) {
         return { error: e.message };
     }
 }
 
-async function verifyTGPassword(phone, password) {
+async function verifyTGPassword(phone, password, socket) {
     try {
-        const { apiId, apiHash } = pendingTG[phone];
+        const { apiId, apiHash } = { apiId: TG_API_ID, apiHash: TG_API_HASH };
         const { computeCheck } = require('telegram/Password');
-        const passwordInfo = await tgClient.invoke(
-            new (require('telegram').Api.account.GetPassword)()
-        );
+        const passwordInfo = await tgClient.invoke(new Api.account.GetPassword());
         const passwordCheck = await computeCheck(passwordInfo, password);
 
-        await tgClient.invoke(
-            new (require('telegram').Api.auth.CheckPassword)({
-                password: passwordCheck
-            })
-        );
+        await tgClient.invoke(new Api.auth.CheckPassword({
+            password: passwordCheck
+        }));
 
         tgConnected = true;
         fs.writeFileSync('tg_session.txt', tgClient.session.save());
         delete pendingTG[phone];
-        io.emit('tg-status', 'connected');
+        socket.emit('tg-status', 'connected');
+        socket.emit('tg-code-status', '✅ تم الاتصال بنجاح!');
         return { success: true };
     } catch(e) {
         return { error: e.message };
     }
 }
 
-// ============ Socket.IO ============
+// ═══════════ Socket.IO ═══════════
 io.on('connection', (socket) => {
     console.log('👤 Client:', socket.id);
     socket.emit('wa-status', waConnected ? 'connected' : 'disconnected');
     socket.emit('tg-status', tgConnected ? 'connected' : 'disconnected');
 
-    // WhatsApp Connect
+    // WhatsApp
     socket.on('wa-connect', async (phone) => {
         socket.emit('wa-code-status', '⏳ جاري طلب الكود...');
         const r = await requestWACode(phone);
@@ -182,7 +189,6 @@ io.on('connection', (socket) => {
         else socket.emit('wa-code-status', '❌ ' + r.error);
     });
 
-    // WhatsApp Spam
     socket.on('wa-spam', async (d) => {
         if (!waConnected) return socket.emit('error', 'WA not connected');
         const target = d.number.includes('@s.whatsapp.net') ? d.number : d.number.replace(/\D/g, '') + '@s.whatsapp.net';
@@ -191,11 +197,7 @@ io.on('connection', (socket) => {
         for (let i = 0; i < d.count; i += BATCH) {
             const batch = [];
             for (let j = i; j < Math.min(i + BATCH, d.count); j++) {
-                batch.push(
-                    waSocket.sendMessage(target, { text: d.message })
-                        .then(() => sent++)
-                        .catch(() => { sent++; failed++; })
-                );
+                batch.push(waSocket.sendMessage(target, { text: d.message }).then(() => sent++).catch(() => { sent++; failed++; }));
             }
             await Promise.all(batch);
             socket.emit('wa-progress', { sent, failed, total: d.count });
@@ -203,7 +205,6 @@ io.on('connection', (socket) => {
         socket.emit('wa-done', { sent, failed });
     });
 
-    // WhatsApp Groups
     socket.on('wa-groups', async () => {
         if (!waConnected) return socket.emit('error', 'WA not connected');
         try {
@@ -212,47 +213,23 @@ io.on('connection', (socket) => {
         } catch(e) { socket.emit('error', e.message); }
     });
 
-    // Add Members
-    socket.on('wa-add-members', async (d) => {
-        if (!waConnected) return socket.emit('error', 'WA not connected');
-        let added = 0, failed = 0;
-        for (const num of d.numbers) {
-            const jid = num.includes('@s.whatsapp.net') ? num : num.replace(/\D/g, '') + '@s.whatsapp.net';
-            try {
-                await waSocket.groupParticipantsUpdate(d.groupId, [jid], 'add');
-                added++;
-            } catch(e) { failed++; }
-            socket.emit('wa-add-progress', { added, failed, total: d.numbers.length });
-            await new Promise(r => setTimeout(r, 300));
-        }
-        socket.emit('wa-add-done', { added, failed });
-    });
-
-    // Telegram Connect (Step 1)
+    // Telegram
     socket.on('tg-connect', async (d) => {
-        socket.emit('tg-code-status', '⏳ جاري الاتصال...');
-        const r = await initTG(d.apiId, d.apiHash, d.phone, socket);
-        if (r.needCode) socket.emit('tg-code-status', '📩 أدخل كود التحقق');
-        else if (r.success) socket.emit('tg-code-status', '✅ تم الاتصال');
-        else socket.emit('tg-code-status', '❌ ' + r.error);
+        socket.emit('tg-code-status', '⏳ جاري إرسال الكود...');
+        const r = await initTG(d.phone, socket);
+        if (r.error) socket.emit('tg-code-status', '❌ ' + r.error);
     });
 
-    // Telegram Verify Code (Step 2)
     socket.on('tg-verify', async (d) => {
-        const r = await verifyTGCode(d.phone, d.code);
-        if (r.needPassword) socket.emit('tg-need-password', '🔐 أدخل كلمة السر (2FA)');
-        else if (r.success) socket.emit('tg-code-status', '✅ تم الاتصال');
-        else socket.emit('tg-code-status', '❌ ' + r.error);
+        const r = await verifyTGCode(d.phone, d.code, socket);
+        if (r.error) socket.emit('tg-code-status', '❌ ' + r.error);
     });
 
-    // Telegram Verify Password (Step 3)
     socket.on('tg-verify-pass', async (d) => {
-        const r = await verifyTGPassword(d.phone, d.password);
-        if (r.success) socket.emit('tg-code-status', '✅ تم الاتصال');
-        else socket.emit('tg-code-status', '❌ ' + r.error);
+        const r = await verifyTGPassword(d.phone, d.password, socket);
+        if (r.error) socket.emit('tg-code-status', '❌ ' + r.error);
     });
 
-    // Telegram Spam
     socket.on('tg-spam', async (d) => {
         if (!tgConnected) return socket.emit('error', 'TG not connected');
         let sent = 0, failed = 0;
@@ -263,16 +240,13 @@ io.on('connection', (socket) => {
                 socket.emit('tg-progress', { sent, failed, total: d.count });
             } catch(e) {
                 failed++;
-                if (e.message && e.message.includes('FLOOD')) {
-                    await new Promise(r => setTimeout(r, 5000));
-                }
+                if (e.message && e.message.includes('FLOOD')) await new Promise(r => setTimeout(r, 5000));
             }
             await new Promise(r => setTimeout(r, 100));
         }
         socket.emit('tg-done', { sent, failed });
     });
 
-    // Telegram Groups
     socket.on('tg-groups', async () => {
         if (!tgConnected) return socket.emit('error', 'TG not connected');
         try {
@@ -283,9 +257,8 @@ io.on('connection', (socket) => {
     });
 });
 
-// ============ Start ============
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
     console.log('🚀 Server on port ' + PORT);
-    initWA().catch(e => console.log('WA init error:', e.message));
+    initWA().catch(e => console.log('WA error:', e.message));
 });
