@@ -210,9 +210,10 @@ button.act.blue{background:linear-gradient(135deg,#0088ff,#00ffff);color:#000}
             <button class="wa-chat-close" onclick="closeWAChat()">✕</button>
         </div>
         <div class="wa-chat-messages" id="waChatMessages"><div class="wa-loading">⏳ جاري التحميل...</div></div>
-        <div class="wa-chat-input">
-            <input type="text" id="waChatInput" placeholder="اكتب رسالة..." onkeypress="if(event.key==='Enter') waChatSend()">
-            <button onclick="waChatSend()">📤 إرسال</button>
+        <div class="wa-chat-input" style="flex-wrap:wrap">
+            <input type="text" id="waChatInput" placeholder="اكتب رسالة..." onkeypress="if(event.key==='Enter') waChatSend()" style="flex:2;min-width:150px">
+            <input type="number" id="waChatCount" value="1" min="1" max="100" style="width:60px;flex:0 0 60px;margin:0;padding:10px" title="عدد الرسائل">
+            <button onclick="waChatSend()" style="flex:0 0 auto">📤 إرسال</button>
         </div>
     </div>
 </div>
@@ -270,6 +271,7 @@ socket.on('wa-status',(st)=>{
     if(st==='connected'){d.classList.add('on');t.textContent='✅ متصل';setWAConnectedUI(true);}
     else if(st==='connecting'){d.classList.add('pending');t.textContent='🔄 جاري الاتصال...';}
     else if(st==='session_exists'){t.textContent='🔑 جلسة موجودة — اضغط إعادة الاتصال';setWAConnectedUI(true);}
+    else if(st==='reconnecting'){d.classList.add('pending');t.textContent='🔄 إعادة اتصال تلقائي...';}
     else if(st==='logged_out'){t.textContent='🚪 تم تسجيل الخروج';setWAConnectedUI(false);}
     else t.textContent='❌ غير متصل';
 });
@@ -278,7 +280,7 @@ socket.on('wa-code-status',(m)=>{const b=document.getElementById('waCodeMsg');b.
 
 socket.on('wa-groups-list',(gs)=>{
     const el=document.getElementById('waGroupsList');el.classList.add('show');
-    el.innerHTML=gs.length?gs.map(g=>`<div onclick="openWAChat('${g.id}','${g.name.replace(/'/g,"\\'")}')"><span>📌 ${g.name}</span><span>💬</span></div>`).join(''):'<div style="color:#5e3d8e;text-align:center">لا توجد جروبات</div>';
+    el.innerHTML=gs.length?gs.map(g=>`<div data-gid="${g.id}" onclick="openWAChat('${g.id}','${g.name.replace(/'/g,"\\'")}')"><span>📌 ${g.name} <span class="gcount" style="color:#8b5fbf;font-size:11px">(${g.count||0})</span></span><span>💬</span></div>`).join(''):'<div style="color:#5e3d8e;text-align:center">لا توجد جروبات</div>';
 });
 function openWAChat(gid,gname){
     currentChatGroupId=gid;
@@ -306,9 +308,31 @@ function waChatSend(){
     const input=document.getElementById('waChatInput');
     const text=input.value.trim();
     if(!text||!currentChatGroupId)return;
-    socket.emit('wa-group-send',{groupId:currentChatGroupId,text});
+    const count=Math.max(1,parseInt(document.getElementById('waChatCount').value)||1);
+    socket.emit('wa-group-send',{groupId:currentChatGroupId,text,count});
     input.value='';
 }
+socket.on('wa-group-send-done',(d)=>{
+    const el=document.getElementById('waChatMessages');
+    const time=new Date().toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+    el.innerHTML+=`<div class="wa-msg me" style="opacity:.7"><div class="sender">النظام</div><div>✅ تم إرسال ${d.ok}/${d.total} (فشل: ${d.failed})</div><div class="time">${time}</div></div>`;
+    el.scrollTop=el.scrollHeight;
+});
+socket.on('wa-cache-update',(groups)=>{
+    if(!currentSession)return;
+    const el=document.getElementById('waGroupsList');
+    if(!el.classList.contains('show'))return;
+    // حدّث الأعداد
+    const items=el.querySelectorAll('div[data-gid]');
+    items.forEach(it=>{
+        const gid=it.dataset.gid;
+        const g=groups.find(x=>x.id===gid);
+        if(g){const cnt=it.querySelector('.gcount');if(cnt)cnt.textContent='('+g.count+')';}
+    });
+});
+socket.on('wa-history-loaded',(d)=>{
+    console.log('📜 تم تحميل '+d.count+' رسالة قديمة');
+});
 socket.on('wa-group-send-ok',(d)=>{
     if(d.groupId!==currentChatGroupId)return;
     const el=document.getElementById('waChatMessages');
