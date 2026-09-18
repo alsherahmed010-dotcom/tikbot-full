@@ -180,7 +180,7 @@ io.on('connection', (socket) => {
         activeJobs[jobId] = { cancel: false };
         broadcastJobs();
 
-        const BATCH = 50;
+        const BATCH = 1;
         for (let i = 0; i < d.count; i += BATCH) {
             if (activeJobs[jobId].cancel) {
                 jobs[jobId].status = 'stopped';
