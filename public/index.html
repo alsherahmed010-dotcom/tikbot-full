@@ -4,37 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>⚡ SPAM TOOL</title>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Cairo',sans-serif}
-body{background:#0a0a0a;color:#fff;min-height:100vh;padding:20px}
+body{background:#0a0a0a;color:#fff;min-height:100vh;padding:15px}
 .container{max-width:600px;margin:0 auto}
 h1{color:#0f0;text-align:center;margin-bottom:5px;text-shadow:0 0 20px #0f0}
 .sub{text-align:center;color:#888;font-size:12px;margin-bottom:20px}
-.server-bar{background:#111;padding:12px;border-radius:10px;margin-bottom:15px;display:flex;gap:8px}
-.server-bar input{flex:1;padding:10px;background:#000;border:1px solid #333;border-radius:8px;color:#0f0;font-size:12px}
-.server-bar button{padding:10px 20px;background:#0f0;color:#000;border:none;border-radius:8px;font-weight:bold;cursor:pointer}
 .tabs{display:flex;gap:8px;margin-bottom:15px}
-.tab{flex:1;padding:14px;background:#111;border:2px solid #333;border-radius:10px;cursor:pointer;text-align:center;font-weight:bold}
+.tab{flex:1;padding:14px;background:#111;border:2px solid #333;border-radius:10px;cursor:pointer;text-align:center;font-weight:bold;color:#fff;font-size:14px}
 .tab.active{background:#0f0;color:#000;border-color:#0f0}
 .tab.tg.active{background:#08c;color:#fff;border-color:#08c}
 .card{background:#111;border:1px solid #333;border-radius:12px;padding:18px;margin-bottom:15px}
-.status{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:10px}
+.card h3{margin-bottom:10px;font-size:15px}
+.status{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px}
 .dot{width:10px;height:10px;border-radius:50%;background:#f00}
 .dot.on{background:#0f0;animation:pulse 2s infinite}
 @keyframes pulse{50%{opacity:.3}}
-input,textarea{width:100%;padding:12px;margin:5px 0;background:#000;border:1px solid #333;border-radius:8px;color:#fff;font-size:14px;font-family:inherit}
+input,textarea{width:100%;padding:12px;margin:5px 0;background:#000;border:1px solid #333;border-radius:8px;color:#fff;font-size:14px;font-family:inherit;direction:ltr;text-align:left}
+input::placeholder,textarea::placeholder{direction:rtl;text-align:right;color:#555}
 textarea{min-height:70px}
-button.act{width:100%;padding:14px;background:#0f0;color:#000;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px}
-button.act:disabled{opacity:.5}
+button.act{width:100%;padding:14px;background:#0f0;color:#000;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:8px}
+button.act:disabled{opacity:.5;cursor:not-allowed}
 button.blue{background:#08c;color:#fff}
 .code-box{background:#000;border:2px dashed #0f0;padding:15px;border-radius:10px;text-align:center;margin:10px 0;display:none}
 .code-box.show{display:block}
-.code-box .code{font-size:28px;color:#ff0;font-weight:bold;letter-spacing:3px;font-family:monospace}
+.code-box .code{font-size:28px;color:#ff0;font-weight:bold;letter-spacing:4px;font-family:monospace;direction:ltr}
 .progress{height:10px;background:#21262d;border-radius:5px;overflow:hidden;margin-top:10px;display:none}
 .progress.show{display:block}
 .fill{height:100%;width:0%;background:linear-gradient(90deg,#0f0,#ff0);transition:.3s}
-.info{color:#888;font-size:12px;margin-top:10px;text-align:center}
+.info{color:#888;font-size:12px;margin-top:8px;text-align:center}
+.msg-box{background:#000;border:1px solid #333;border-radius:8px;padding:10px;margin:8px 0;font-size:13px;display:none}
+.msg-box.show{display:block}
+.msg-box.ok{border-color:#0f0;color:#0f0}
+.msg-box.err{border-color:#f00;color:#f00}
 .groups{max-height:200px;overflow-y:auto;background:#000;border-radius:8px;padding:10px;margin-top:10px;display:none}
 .groups.show{display:block}
 .groups div{padding:8px;border-bottom:1px solid #222;cursor:pointer;font-size:13px}
@@ -45,102 +48,225 @@ button.blue{background:#08c;color:#fff}
 <div class="container">
     <h1>⚡ SPAM TOOL</h1>
     <p class="sub">WhatsApp + Telegram Web Panel</p>
-    <div class="server-bar">
-        <input type="text" id="serverUrl" placeholder="https://your-server.railway.app">
-        <button onclick="reconnect()">🔌 اتصال</button>
-    </div>
+
     <div class="tabs">
         <div class="tab active" onclick="switchTab('wa')">📱 WhatsApp</div>
         <div class="tab tg" onclick="switchTab('tg')">✈️ Telegram</div>
     </div>
+
+    <!-- WhatsApp -->
     <div id="waPanel">
         <div class="card">
+            <h3 style="color:#0f0">🔗 ربط الواتساب</h3>
             <div class="status"><span class="dot" id="waDot"></span><span id="waStatus">غير متصل</span></div>
             <input type="text" id="waPhone" placeholder="📱 رقمك (201012345678)">
-            <button class="act" onclick="waConnect()">🔑 ربط واتساب</button>
+            <button class="act" onclick="waConnect()">🔑 طلب كود الربط</button>
             <div class="code-box" id="waCodeBox">
                 <div>🔑 كود الربط:</div>
                 <div class="code" id="waCode">----</div>
+                <div class="info">واتساب → الأجهزة المرتبطة → ربط برقم الهاتف</div>
             </div>
+            <div class="msg-box" id="waCodeMsg"></div>
         </div>
+
         <div class="card">
             <h3 style="color:#0f0">🚀 سبام واتساب</h3>
             <input type="text" id="waTarget" placeholder="📱 رقم الهدف">
-            <textarea id="waMsg">Hello!</textarea>
-            <input type="number" id="waCount" value="10">
+            <textarea id="waMsg" placeholder="💬 الرسالة">Hello!</textarea>
+            <input type="number" id="waCount" value="10" placeholder="🔢 العدد">
             <button class="act" id="waSendBtn" onclick="waSend()">⚡ إرسال</button>
             <div class="progress" id="waProg"><div class="fill" id="waFill"></div></div>
             <div class="info" id="waProgText"></div>
         </div>
+
         <div class="card">
             <h3 style="color:#0f0">📋 الجروبات</h3>
-            <button class="act" onclick="waGroups()">🔄 جلب</button>
+            <button class="act" onclick="waGroups()">🔄 جلب الجروبات</button>
             <div class="groups" id="waGroupsList"></div>
         </div>
     </div>
+
+    <!-- Telegram -->
     <div id="tgPanel" style="display:none">
         <div class="card">
+            <h3 style="color:#08c">🔗 ربط التليجرام</h3>
             <div class="status"><span class="dot" id="tgDot"></span><span id="tgStatus">غير متصل</span></div>
             <input type="text" id="tgApiId" placeholder="📱 API ID">
             <input type="text" id="tgApiHash" placeholder="🔑 API Hash">
             <input type="text" id="tgPhone" placeholder="📱 رقمك">
-            <button class="act blue" onclick="tgConnect()">🔑 ربط تليجرام</button>
+            <button class="act blue" id="tgConnectBtn" onclick="tgConnect()">🔑 ربط</button>
+            <input type="text" id="tgCode" placeholder="📩 كود التحقق" style="display:none">
+            <button class="act blue" id="tgVerifyBtn" onclick="tgVerify()" style="display:none">✅ تأكيد الكود</button>
+            <input type="text" id="tgPassword" placeholder="🔐 كلمة سر 2FA" style="display:none">
+            <button class="act blue" id="tgPassBtn" onclick="tgPasswordSubmit()" style="display:none">✅ تأكيد</button>
+            <div class="msg-box" id="tgCodeMsg"></div>
+            <div class="info">API ID/Hash من my.telegram.org</div>
         </div>
+
         <div class="card">
             <h3 style="color:#08c">🚀 سبام تليجرام</h3>
-            <input type="text" id="tgTarget" placeholder="👤 @username">
-            <textarea id="tgMsg">Hello!</textarea>
-            <input type="number" id="tgCount" value="10">
+            <input type="text" id="tgTarget" placeholder="👤 @username or ID">
+            <textarea id="tgMsg" placeholder="💬 الرسالة">Hello!</textarea>
+            <input type="number" id="tgCount" value="10" placeholder="🔢 العدد">
             <button class="act blue" id="tgSendBtn" onclick="tgSend()">⚡ إرسال</button>
             <div class="progress" id="tgProg"><div class="fill" id="tgFill"></div></div>
             <div class="info" id="tgProgText"></div>
         </div>
+
         <div class="card">
             <h3 style="color:#08c">📋 الجروبات</h3>
-            <button class="act blue" onclick="tgGroups()">🔄 جلب</button>
+            <button class="act blue" onclick="tgGroups()">🔄 جلب الجروبات</button>
             <div class="groups" id="tgGroupsList"></div>
         </div>
     </div>
 </div>
+
 <script>
-let socket = null;
-function reconnect() {
-    const url = document.getElementById('serverUrl').value.trim();
-    if (!url) return alert('اكتب رابط السيرفر');
-    if (socket) socket.disconnect();
-    socket = io(url, { transports: ['websocket', 'polling'] });
-    setup();
-}
-function setup() {
-    socket.on('wa-status', (st) => {
-        const d = document.getElementById('waDot'), t = document.getElementById('waStatus');
-        if (st === 'connected') { d.classList.add('on'); t.textContent = '✅ متصل'; }
-        else { d.classList.remove('on'); t.textContent = '❌ غير متصل'; }
-    });
-    socket.on('tg-status', (st) => {
-        const d = document.getElementById('tgDot'), t = document.getElementById('tgStatus');
-        if (st === 'connected') { d.classList.add('on'); t.textContent = '✅ متصل'; }
-        else { d.classList.remove('on'); t.textContent = '❌ غير متصل'; }
-    });
-    socket.on('wa-code', (c) => { document.getElementById('waCodeBox').classList.add('show'); document.getElementById('waCode').textContent = c; });
-    socket.on('wa-progress', (d) => { document.getElementById('waFill').style.width = (d.sent/d.total*100)+'%'; document.getElementById('waProgText').textContent = d.sent+'/'+d.total; });
-    socket.on('wa-done', (s) => { document.getElementById('waSendBtn').disabled = false; alert('✅ '+s); });
-    socket.on('wa-groups-list', (gs) => { const e = document.getElementById('waGroupsList'); e.classList.add('show'); e.innerHTML = gs.map(g => '<div onclick="document.getElementById(\'waTarget\').value=\''+g.id+'\'">📌 '+g.name+'</div>').join(''); });
-    socket.on('tg-progress', (d) => { document.getElementById('tgFill').style.width = (d.sent/d.total*100)+'%'; document.getElementById('tgProgText').textContent = d.sent+'/'+d.total; });
-    socket.on('tg-done', (s) => { document.getElementById('tgSendBtn').disabled = false; alert('✅ '+s); });
-    socket.on('tg-groups-list', (gs) => { const e = document.getElementById('tgGroupsList'); e.classList.add('show'); e.innerHTML = gs.map(g => '<div onclick="document.getElementById(\'tgTarget\').value=\''+g.id+'\'">📌 '+g.name+'</div>').join(''); });
-    socket.on('error', (m) => alert('❌ '+m));
-}
+const socket = io();
+
+// ============ WhatsApp ============
+socket.on('wa-status', (st) => {
+    const d = document.getElementById('waDot'), t = document.getElementById('waStatus');
+    if (st === 'connected') { d.classList.add('on'); t.textContent = '✅ متصل'; }
+    else { d.classList.remove('on'); t.textContent = '❌ غير متصل'; }
+});
+
+socket.on('wa-code', (c) => {
+    document.getElementById('waCodeBox').classList.add('show');
+    document.getElementById('waCode').textContent = c;
+});
+
+socket.on('wa-code-status', (msg) => {
+    const b = document.getElementById('waCodeMsg');
+    b.textContent = msg;
+    b.className = 'msg-box show ' + (msg.includes('❌') ? 'err' : 'ok');
+});
+
+socket.on('wa-progress', (d) => {
+    const pct = Math.round(d.sent / d.total * 100);
+    document.getElementById('waFill').style.width = pct + '%';
+    document.getElementById('waProgText').textContent = pct + '% (' + d.sent + '/' + d.total + ')';
+});
+
+socket.on('wa-done', (d) => {
+    document.getElementById('waSendBtn').disabled = false;
+    setTimeout(() => document.getElementById('waProg').classList.remove('show'), 2000);
+    alert('✅ Sent: ' + d.sent + ' | Failed: ' + d.failed);
+});
+
+socket.on('wa-groups-list', (gs) => {
+    const el = document.getElementById('waGroupsList');
+    el.classList.add('show');
+    el.innerHTML = gs.map(g => `<div onclick="document.getElementById('waTarget').value='${g.id}'">📌 ${g.name}</div>`).join('');
+});
+
+// ============ Telegram ============
+socket.on('tg-status', (st) => {
+    const d = document.getElementById('tgDot'), t = document.getElementById('tgStatus');
+    if (st === 'connected') { d.classList.add('on'); t.textContent = '✅ متصل'; }
+    else { d.classList.remove('on'); t.textContent = '❌ غير متصل'; }
+});
+
+socket.on('tg-code-status', (msg) => {
+    const b = document.getElementById('tgCodeMsg');
+    b.textContent = msg;
+    b.className = 'msg-box show ' + (msg.includes('❌') ? 'err' : 'ok');
+});
+
+socket.on('tg-need-code', () => {
+    document.getElementById('tgCode').style.display = 'block';
+    document.getElementById('tgVerifyBtn').style.display = 'block';
+});
+
+socket.on('tg-need-password', () => {
+    document.getElementById('tgPassword').style.display = 'block';
+    document.getElementById('tgPassBtn').style.display = 'block';
+});
+
+socket.on('tg-progress', (d) => {
+    const pct = Math.round(d.sent / d.total * 100);
+    document.getElementById('tgFill').style.width = pct + '%';
+    document.getElementById('tgProgText').textContent = pct + '% (' + d.sent + '/' + d.total + ')';
+});
+
+socket.on('tg-done', (d) => {
+    document.getElementById('tgSendBtn').disabled = false;
+    setTimeout(() => document.getElementById('tgProg').classList.remove('show'), 2000);
+    alert('✅ Sent: ' + d.sent + ' | Failed: ' + d.failed);
+});
+
+socket.on('tg-groups-list', (gs) => {
+    const el = document.getElementById('tgGroupsList');
+    el.classList.add('show');
+    el.innerHTML = gs.map(g => `<div onclick="document.getElementById('tgTarget').value='${g.id}'">📌 ${g.name}</div>`).join('');
+});
+
+socket.on('error', (m) => alert('❌ ' + m));
+
+// ============ Actions ============
 function switchTab(t) {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    if (t === 'wa') { document.querySelectorAll('.tab')[0].classList.add('active'); document.getElementById('waPanel').style.display = 'block'; document.getElementById('tgPanel').style.display = 'none'; }
-    else { document.querySelectorAll('.tab')[1].classList.add('active'); document.getElementById('waPanel').style.display = 'none'; document.getElementById('tgPanel').style.display = 'block'; }
+    if (t === 'wa') {
+        document.querySelectorAll('.tab')[0].classList.add('active');
+        document.getElementById('waPanel').style.display = 'block';
+        document.getElementById('tgPanel').style.display = 'none';
+    } else {
+        document.querySelectorAll('.tab')[1].classList.add('active');
+        document.getElementById('waPanel').style.display = 'none';
+        document.getElementById('tgPanel').style.display = 'block';
+    }
 }
-function waConnect() { const p = document.getElementById('waPhone').value.trim(); if (p) socket.emit('wa-connect', p); }
-function waSend() { const n = document.getElementById('waTarget').value.trim(); const m = document.getElementById('waMsg').value; const c = parseInt(document.getElementById('waCount').value); if (!n||!m||!c) return alert('املأ'); document.getElementById('waSendBtn').disabled = true; document.getElementById('waProg').classList.add('show'); socket.emit('wa-spam', { number: n, message: m, count: c }); }
+
+function waConnect() {
+    const p = document.getElementById('waPhone').value.trim();
+    if (!p) return alert('اكتب رقمك');
+    socket.emit('wa-connect', p);
+}
+
+function waSend() {
+    const n = document.getElementById('waTarget').value.trim();
+    const m = document.getElementById('waMsg').value;
+    const c = parseInt(document.getElementById('waCount').value);
+    if (!n || !m || !c) return alert('املأ البيانات');
+    document.getElementById('waSendBtn').disabled = true;
+    document.getElementById('waProg').classList.add('show');
+    socket.emit('wa-spam', { number: n, message: m, count: c });
+}
+
 function waGroups() { socket.emit('wa-groups'); }
-function tgConnect() { const a = document.getElementById('tgApiId').value.trim(); const h = document.getElementById('tgApiHash').value.trim(); const p = document.getElementById('tgPhone').value.trim(); if (a&&h&&p) socket.emit('tg-connect', { apiId: a, apiHash: h, phone: p }); }
-function tgSend() { const t = document.getElementById('tgTarget').value.trim(); const m = document.getElementById('tgMsg').value; const c = parseInt(document.getElementById('tgCount').value); if (!t||!m||!c) return alert('املأ'); document.getElementById('tgSendBtn').disabled = true; document.getElementById('tgProg').classList.add('show'); socket.emit('tg-spam', { target: t, message: m, count: c }); }
+
+function tgConnect() {
+    const a = document.getElementById('tgApiId').value.trim();
+    const h = document.getElementById('tgApiHash').value.trim();
+    const p = document.getElementById('tgPhone').value.trim();
+    if (!a || !h || !p) return alert('املأ البيانات');
+    socket.emit('tg-connect', { apiId: a, apiHash: h, phone: p });
+}
+
+function tgVerify() {
+    const p = document.getElementById('tgPhone').value.trim();
+    const c = document.getElementById('tgCode').value.trim();
+    if (!c) return alert('اكتب الكود');
+    socket.emit('tg-verify', { phone: p, code: c });
+}
+
+function tgPasswordSubmit() {
+    const p = document.getElementById('tgPhone').value.trim();
+    const pass = document.getElementById('tgPassword').value.trim();
+    if (!pass) return alert('اكتب كلمة السر');
+    socket.emit('tg-verify-pass', { phone: p, password: pass });
+}
+
+function tgSend() {
+    const t = document.getElementById('tgTarget').value.trim();
+    const m = document.getElementById('tgMsg').value;
+    const c = parseInt(document.getElementById('tgCount').value);
+    if (!t || !m || !c) return alert('املأ البيانات');
+    document.getElementById('tgSendBtn').disabled = true;
+    document.getElementById('tgProg').classList.add('show');
+    socket.emit('tg-spam', { target: t, message: m, count: c });
+}
+
 function tgGroups() { socket.emit('tg-groups'); }
 </script>
 </body>
