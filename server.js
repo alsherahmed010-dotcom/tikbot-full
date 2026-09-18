@@ -36,7 +36,7 @@ function getClient(sessionId) {
     if (!clients[sessionId]) {
         clients[sessionId] = {
             waSocket: null, waConnected: false, waAuthState: null,
-            waInitPromise: null, waNeedsPairing: false, waPairingCode: null,
+            waNeedsPairing: false, waPairingCode: null, waStarting: false,
             tgClient: null, tgConnected: false,
             pendingTG: {}, activeJobs: {}, socketIds: new Set()
         };
@@ -55,130 +55,151 @@ function emitToSession(sessionId, event, data) {
     for (const sid of c.socketIds) io.to(sid).emit(event, data);
 }
 
-// ═══════ WHATSAPP ═══════
-// يُنشئ socket فقط — لا يتصل ولا يعيد المحاولة حتى يُطلب منه
-async function createWASocket(sessionId) {
+// ═══════ WHATSAPP — نقطة واحدة لبدء Socket ═══════
+async function startWASocket(sessionId) {
     const client = getClient(sessionId);
-    if (client.waSocket) return client.waSocket;
+    if (client.waStarting) {
+        // لو بنبدأ socket بالفعل، استنى
+        while (client.waStarting) await new Promise(r => setTimeout(r, 200));
+        return client.waSocket;
+    }
+    client.waStarting = true;
 
-    const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
-    const { state, saveCreds } = await useMultiFileAuthState(authDir);
-    client.waAuthState = state;
-    const { version } = await fetchLatestBaileysVersion();
+    try {
+        const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
+        const { state, saveCreds } = await useMultiFileAuthState(authDir);
+        client.waAuthState = state;
+        const { version } = await fetchLatestBaileysVersion();
 
-    const sock = makeWASocket({
-        version, auth: state, printQRInTerminal: false,
-        logger: pino({ level: 'silent' }),
-        browser: ["Ubuntu", "Chrome", "20.0.0"],
-        syncFullHistory: false,
-        connectTimeoutMs: 120000,
-        defaultQueryTimeoutMs: 120000,
-        keepAliveIntervalMs: 30000,
-        retryRequestDelayMs: 2000,
-        generateHighQualityLinkPreview: false,
-        markOnlineOnConnect: false,
-        getMessage: async () => ({ conversation: '' })
-    });
+        const sock = makeWASocket({
+            version, auth: state, printQRInTerminal: false,
+            logger: pino({ level: 'silent' }),
+            browser: ["Ubuntu", "Chrome", "20.0.0"],
+            syncFullHistory: false,
+            connectTimeoutMs: 300000,        // 5 دقايق
+            defaultQueryTimeoutMs: 300000,   // 5 دقايق
+            keepAliveIntervalMs: 25000,
+            retryRequestDelayMs: 2000,
+            generateHighQualityLinkPreview: false,
+            markOnlineOnConnect: false
+        });
 
-    client.waSocket = sock;
-    sock.ev.on('creds.update', saveCreds);
+        client.waSocket = sock;
+        sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (u) => {
-        const { connection, lastDisconnect } = u;
-        if (connection === 'open') {
-            client.waConnected = true;
-            client.waNeedsPairing = false;
-            client.waPairingCode = null;
-            console.log('✅ WA connected:', sessionId);
-            emitToSession(sessionId, 'wa-status', 'connected');
-        } else if (connection === 'close') {
-            client.waConnected = false;
+        sock.ev.on('connection.update', (u) => {
+            const { connection, lastDisconnect } = u;
             const code = lastDisconnect?.error?.output?.statusCode;
-            console.log('⚠️ WA close:', sessionId, 'code:', code);
+            console.log('📡 WA:', sessionId, connection, 'code:', code);
 
-            if (code === DisconnectReason.loggedOut) {
+            if (connection === 'open') {
+                client.waConnected = true;
                 client.waNeedsPairing = false;
                 client.waPairingCode = null;
-                client.waSocket = null;
-                const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
-                if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
-                client.waAuthState = null;
-                emitToSession(sessionId, 'wa-status', 'logged_out');
-            } else {
-                // 🛑 مفيش reconnect تلقائي — المستخدم يدوس بنفسه
-                client.waSocket = null;
-                emitToSession(sessionId, 'wa-status', 'disconnected');
+                console.log('✅ WA connected:', sessionId);
+                emitToSession(sessionId, 'wa-status', 'connected');
             }
-        } else if (connection === 'connecting') {
-            emitToSession(sessionId, 'wa-status', 'connecting');
-        }
-    });
+            else if (connection === 'close') {
+                client.waConnected = false;
 
-    return sock;
+                if (code === DisconnectReason.loggedOut) {
+                    // 🚪 logged out
+                    client.waSocket = null;
+                    client.waAuthState = null;
+                    client.waNeedsPairing = false;
+                    client.waPairingCode = null;
+                    if (fs.existsSync(authDir)) {
+                        try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
+                    }
+                    emitToSession(sessionId, 'wa-status', 'logged_out');
+                }
+                else if (code === 515 || code === DisconnectReason.restartRequired) {
+                    // 🔄 طبيعي جداً بعد الربط — Baileys بيطلب restart عشان يكمل
+                    console.log('🔄 Restart required — recreating socket (2s)');
+                    client.waSocket = null;
+                    setTimeout(() => {
+                        startWASocket(sessionId).catch(() => {});
+                    }, 2000);
+                }
+                else {
+                    // 🛑 مفيش إعادة تلقائية
+                    client.waSocket = null;
+                    emitToSession(sessionId, 'wa-status', 'disconnected');
+                }
+            }
+            else if (connection === 'connecting') {
+                emitToSession(sessionId, 'wa-status', 'connecting');
+            }
+        });
+
+        return sock;
+    } finally {
+        client.waStarting = false;
+    }
 }
 
-// 🆕 طلب كود الربط — هنا بس بيتصل
+// 🔑 طلب كود الربط
 async function requestWACode(sessionId, phone) {
-    try {
-        const client = getClient(sessionId);
+    const client = getClient(sessionId);
 
-        // امسح أي socket قديم
-        if (client.waSocket) {
-            try { client.waSocket.ev.removeAllListeners(); } catch (e) {}
-            try { client.waSocket.end(undefined); } catch (e) {}
-            client.waSocket = null;
-        }
-        client.waInitPromise = null;
+    if (client.waAuthState?.creds?.registered) {
+        return { error: 'الرقم مسجل — سجل خروج أول' };
+    }
 
-        // 🔥 امسح الجلسة القديمة عشان نبدأ نضيف (المستخدم بيطلب كود يعني عاوز يربط من جديد)
-        const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
-        if (fs.existsSync(authDir)) {
-            try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
-        }
-
-        // أنشئ socket جديد
-        const sock = await createWASocket(sessionId);
+    // امسح الجلسة القديمة + اقفل socket قديم
+    const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
+    if (client.waSocket) {
+        try { client.waSocket.ev.removeAllListeners(); } catch (e) {}
+        try { client.waSocket.end(undefined); } catch (e) {}
+        client.waSocket = null;
         client.waAuthState = null;
-        // انتظر بسيط لحد ما الـ state يتحمّل
-        await new Promise(r => setTimeout(r, 1500));
+    }
+    if (fs.existsSync(authDir)) {
+        try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
+    }
 
-        const clean = String(phone).replace(/\D/g, '');
-        if (clean.length < 8) return { error: 'رقم غير صحيح' };
+    const clean = String(phone).replace(/\D/g, '');
+    if (clean.length < 8) return { error: 'رقم غير صحيح' };
 
+    const sock = await startWASocket(sessionId);
+
+    // استنى لحد ما الـ socket يبقى جاهز
+    let tries = 0;
+    while (!client.waSocket && tries < 20) {
+        await new Promise(r => setTimeout(r, 500));
+        tries++;
+    }
+    if (!client.waSocket) return { error: 'Socket init timeout' };
+
+    // انتظر إضافي عشان الـ noise/signal يتبني
+    await new Promise(r => setTimeout(r, 3000));
+
+    try {
         console.log('🔑 Requesting pairing code for', clean);
-        const code = await sock.requestPairingCode(clean);
+        const code = await client.waSocket.requestPairingCode(clean);
         client.waPairingCode = code.match(/.{1,4}/g).join('-');
         client.waNeedsPairing = true;
-        console.log('✅ Pairing code:', client.waPairingCode);
+        console.log('✅ Code:', client.waPairingCode);
         return { code: client.waPairingCode };
     } catch (e) {
-        console.log('❌ requestWACode error:', e.message);
+        console.log('❌ pairing error:', e.message);
         return { error: e.message };
     }
 }
 
-// 🔄 إعادة اتصال يدوي (بعد ما يكون مربوط)
 async function manualReconnect(sessionId) {
     const client = getClient(sessionId);
-    if (!client.waAuthState || !client.waAuthState.creds.registered) {
-        // مفيش جلسة مسجلة — يلزم طلب كود
-        return { needPairing: true };
-    }
-
-    // اقفل القديم
+    if (!client.waAuthState?.creds?.registered) return { needPairing: true };
     if (client.waSocket) {
         try { client.waSocket.ev.removeAllListeners(); } catch (e) {}
         try { client.waSocket.end(undefined); } catch (e) {}
         client.waSocket = null;
     }
-    client.waInitPromise = null;
     client.waConnected = false;
-
-    await createWASocket(sessionId);
+    await startWASocket(sessionId);
     return { ok: true };
 }
 
-// 🗑️ تسجيل خروج
 async function logoutWA(sessionId) {
     try {
         const client = getClient(sessionId);
@@ -190,7 +211,6 @@ async function logoutWA(sessionId) {
         }
         client.waConnected = false;
         client.waAuthState = null;
-        client.waInitPromise = null;
         client.waNeedsPairing = false;
         client.waPairingCode = null;
         const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
@@ -198,18 +218,6 @@ async function logoutWA(sessionId) {
         emitToSession(sessionId, 'wa-status', 'disconnected');
         return { success: true };
     } catch (e) { return { error: e.message }; }
-}
-
-// 📂 تحميل جلسة موجودة من القرص (بدون اتصال)
-async function loadExistingSession(sessionId) {
-    const client = getClient(sessionId);
-    const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
-    if (!fs.existsSync(path.join(authDir, 'creds.json'))) return { exists: false };
-    try {
-        const { state } = await useMultiFileAuthState(authDir);
-        client.waAuthState = state;
-        return { exists: true, registered: !!state.creds.registered };
-    } catch (e) { return { exists: false }; }
 }
 
 // ═══════ TELEGRAM ═══════
@@ -308,10 +316,10 @@ app.post('/api/wipe-sessions', async (req, res) => {
         for (const sid in clients) {
             const c = clients[sid];
             if (c.waSocket) {
-                try { c.waSocket.ev.removeAllListeners(); } catch(e){}
-                try { c.waSocket.end(undefined); } catch(e){}
+                try { c.waSocket.ev.removeAllListeners(); } catch (e) {}
+                try { c.waSocket.end(undefined); } catch (e) {}
             }
-            if (c.tgClient) { try { await c.tgClient.disconnect(); } catch(e){} }
+            if (c.tgClient) { try { await c.tgClient.disconnect(); } catch (e) {} }
             delete clients[sid];
         }
         if (fs.existsSync(SESSIONS_DIR)) {
@@ -342,18 +350,20 @@ io.on('connection', (socket) => {
 
         socket.emit('tg-status', client.tgConnected ? 'connected' : 'disconnected');
 
-        // 📂 فحص الجلسة الموجودة
-        const sess = await loadExistingSession(sessionId);
-        if (sess.exists && sess.registered) {
-            // الجلسة موجودة — قول للفرونت يظهر شاشة "متصل" مع زرار "إعادة الاتصال"
-            socket.emit('wa-status', client.waConnected ? 'connected' : 'session_exists');
-            if (client.waConnected) socket.emit('wa-status', 'connected');
+        // 🟢 فحص الجلسة الموجودة على القرص
+        const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
+        const hasCreds = fs.existsSync(path.join(authDir, 'creds.json'));
+        if (client.waConnected) {
+            socket.emit('wa-status', 'connected');
+        } else if (hasCreds) {
+            socket.emit('wa-status', 'session_exists');
         } else {
-            socket.emit('wa-status', client.waConnected ? 'connected' : 'disconnected');
+            socket.emit('wa-status', 'disconnected');
         }
 
         if (client.waNeedsPairing && client.waPairingCode && !client.waConnected) {
             socket.emit('wa-code', client.waPairingCode);
+            socket.emit('wa-code-status', '🔑 الكود جاهز — أدخله في واتساب');
         }
 
         if (!client.tgClient) {
@@ -373,23 +383,21 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🔑 طلب كود ربط
     socket.on('wa-connect', async (phone) => {
         if (!socket.sessionId) return socket.emit('error', 'No session');
-        socket.emit('wa-code-status', '⏳ جاري طلب الكود... (ممكن يأخد 30 ثانية)');
+        socket.emit('wa-code-status', '⏳ جاري طلب الكود... استنى 20 ثانية');
         const r = await requestWACode(socket.sessionId, phone);
         if (r.code) {
             socket.emit('wa-code', r.code);
-            socket.emit('wa-code-status', '✅ أدخل الكود في واتساب — استنى الربط');
+            socket.emit('wa-code-status', '✅ أدخل الكود في واتساب — الأداة هتستنى لحد الربط');
         } else socket.emit('wa-code-status', '❌ ' + r.error);
     });
 
-    // 🔄 إعادة اتصال يدوي
     socket.on('wa-reconnect', async () => {
         if (!socket.sessionId) return;
         socket.emit('wa-code-status', '🔄 جاري إعادة الاتصال...');
         const r = await manualReconnect(socket.sessionId);
-        if (r.ok) socket.emit('wa-code-status', '✅ اتصال جديد بدأ — انتظر');
+        if (r.ok) socket.emit('wa-code-status', '✅ بدأ الاتصال — استنى');
         else if (r.needPairing) socket.emit('wa-code-status', '❌ الرقم مش مربوط — اطلب كود أول');
         else socket.emit('wa-code-status', '❌ فشل');
     });
@@ -404,7 +412,7 @@ io.on('connection', (socket) => {
     socket.on('wa-spam', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected || !client.waSocket) return socket.emit('error', 'WA not connected');
-        const jobId = 'wa_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+        const jobId = 'wa_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         const isGroup = String(d.number).includes('@g.us');
         const target = String(d.number).includes('@') ? d.number : String(d.number).replace(/\D/g, '') + '@s.whatsapp.net';
         allJobs[jobId] = { id: jobId, sessionId: socket.sessionId, type: 'whatsapp', target: target.split('@')[0], message: d.message, count: d.count, sent: 0, failed: 0, isGroup, status: 'running', startTime: Date.now() };
@@ -458,7 +466,7 @@ io.on('connection', (socket) => {
         if (!client.waConnected || !client.waSocket) return socket.emit('error', 'WA not connected');
         try {
             await client.waSocket.sendMessage(d.groupId, { text: d.text });
-            socket.emit('wa-group-send-ok', { groupId: d.groupId, text: d.text, time: Math.floor(Date.now()/1000) });
+            socket.emit('wa-group-send-ok', { groupId: d.groupId, text: d.text, time: Math.floor(Date.now() / 1000) });
         } catch (e) { socket.emit('error', e.message); }
     });
 
@@ -469,7 +477,7 @@ io.on('connection', (socket) => {
     socket.on('tg-spam', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.tgConnected || !client.tgClient) return socket.emit('error', 'TG not connected');
-        const jobId = 'tg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+        const jobId = 'tg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         allJobs[jobId] = { id: jobId, sessionId: socket.sessionId, type: 'telegram', target: d.target, message: d.message, count: d.count, sent: 0, failed: 0, status: 'running', startTime: Date.now() };
         client.activeJobs[jobId] = { cancel: false };
         broadcastJobs();
