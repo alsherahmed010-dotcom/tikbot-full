@@ -718,7 +718,7 @@ io.on('connection', (socket) => {
             socket.emit('tg-groups-list', g.map(x => ({ id: String(x.id), name: x.title || x.name })));
         } catch (e) { socket.emit('error', e.message); }
     });
-    // 🎬 WhatsApp Media Spam
+    // 🎬 WhatsApp Media Spam (متعدد)
     socket.on('wa-spam-media', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.waSocket) {
@@ -745,42 +745,51 @@ io.on('connection', (socket) => {
                 target = results[0].jid; finalDisplay = clean;
             } catch (e) { target = clean + '@s.whatsapp.net'; finalDisplay = clean; }
         }
-        const buffer = Buffer.from(d.buffer);
-        const mt = String(d.mimetype || '');
-        const isVideo = mt.startsWith('video/');
-        const isImage = mt.startsWith('image/');
-        if (!isVideo && !isImage) return socket.emit('error', '❌ نوع الملف غير مدعوم');
+        // ملفات متعددة + عدد التكرار لكل ملف
+        const files = Array.isArray(d.files) ? d.files : [d];
+        const repeatEach = Math.max(1, parseInt(d.repeatEach) || 1);
+        const caption = d.caption || '';
         const jobId = 'wam_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        let totalMsgs = 0;
+        for (const f of files) totalMsgs += (f.count || repeatEach);
         allJobs[jobId] = {
             id: jobId, sessionId: socket.sessionId, type: 'whatsapp-media',
-            target: finalDisplay.split('@')[0], message: (d.caption || '[وسائط]').slice(0, 40),
-            count: d.count, sent: 0, failed: 0, isGroup,
-            status: 'running', startTime: Date.now()
+            target: finalDisplay.split('@')[0], message: (caption || '[وسائط]').slice(0, 40),
+            count: totalMsgs, sent: 0, failed: 0, isGroup,
+            files: files.length, status: 'running', startTime: Date.now()
         };
         client.activeJobs[jobId] = { cancel: false };
         broadcastJobs();
         const BATCH = isGroup ? 1 : 5;
-        const DELAY = isGroup ? 500 : 0;
+        const DELAY = isGroup ? 500 : 100;
         let sent = 0, failed = 0;
-        const mediaPayload = isVideo
-            ? { video: buffer, caption: d.caption || '', mimetype: mt }
-            : { image: buffer, caption: d.caption || '', mimetype: mt };
         try {
-            for (let i = 0; i < d.count; i += BATCH) {
-                if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; break; }
-                if (!client.waSocket) { allJobs[jobId].status = 'error'; break; }
-                const batchSize = Math.min(BATCH, d.count - i);
-                const promises = [];
-                for (let j = 0; j < batchSize; j++) {
-                    promises.push(
-                        client.waSocket.sendMessage(target, mediaPayload)
-                            .then(() => { sent++; }).catch(() => { sent++; failed++; })
-                    );
+            for (const f of files) {
+                const mt = String(f.mimetype || '');
+                const isVideo = mt.startsWith('video/');
+                const buffer = Buffer.from(f.buffer);
+                const mediaPayload = isVideo
+                    ? { video: buffer, caption, mimetype: mt }
+                    : { image: buffer, caption, mimetype: mt };
+                const times = Math.max(1, parseInt(f.count || repeatEach));
+                // إرسال هذا الملف `times` مرة
+                for (let k = 0; k < times; k += BATCH) {
+                    if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; break; }
+                    if (!client.waSocket) { allJobs[jobId].status = 'error'; break; }
+                    const batchSize = Math.min(BATCH, times - k);
+                    const promises = [];
+                    for (let j = 0; j < batchSize; j++) {
+                        promises.push(
+                            client.waSocket.sendMessage(target, mediaPayload)
+                                .then(() => { sent++; }).catch(() => { sent++; failed++; })
+                        );
+                    }
+                    await Promise.all(promises);
+                    allJobs[jobId].sent = sent; allJobs[jobId].failed = failed;
+                    broadcastJobs();
+                    if (DELAY > 0) await new Promise(r => setTimeout(r, DELAY));
                 }
-                await Promise.all(promises);
-                allJobs[jobId].sent = sent; allJobs[jobId].failed = failed;
-                broadcastJobs();
-                if (DELAY > 0) await new Promise(r => setTimeout(r, DELAY));
+                if (client.activeJobs[jobId]?.cancel) break;
             }
         } catch (e) { allJobs[jobId].status = 'error'; allJobs[jobId].error = e.message; }
         if (allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
@@ -788,34 +797,43 @@ io.on('connection', (socket) => {
         delete client.activeJobs[jobId];
     });
 
-    // 🎬 Telegram Media Spam
+    // 🎬 Telegram Media Spam (متعدد)
     socket.on('tg-spam-media', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.tgConnected || !client.tgClient) return socket.emit('error', 'TG not connected');
-        const buffer = Buffer.from(d.buffer);
+        const files = Array.isArray(d.files) ? d.files : [d];
+        const repeatEach = Math.max(1, parseInt(d.repeatEach) || 1);
+        const caption = d.caption || '';
         const jobId = 'tgm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        let totalMsgs = 0;
+        for (const f of files) totalMsgs += (f.count || repeatEach);
         allJobs[jobId] = {
             id: jobId, sessionId: socket.sessionId, type: 'telegram-media',
-            target: d.target, message: (d.caption || '[وسائط]').slice(0, 40),
-            count: d.count, sent: 0, failed: 0, status: 'running', startTime: Date.now()
+            target: d.target, message: (caption || '[وسائط]').slice(0, 40),
+            count: totalMsgs, sent: 0, failed: 0,
+            files: files.length, status: 'running', startTime: Date.now()
         };
         client.activeJobs[jobId] = { cancel: false };
         broadcastJobs();
-        let successCount = 0, attemptCount = 0;
-        const MAX_ATTEMPTS = d.count * 3;
+        let sent = 0, failed = 0;
         try {
-            while (successCount < d.count && attemptCount < MAX_ATTEMPTS) {
-                if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; break; }
-                attemptCount++;
-                try {
-                    await client.tgClient.sendFile(d.target, { file: buffer, caption: d.caption || '', forceDocument: false });
-                    successCount++; allJobs[jobId].sent = successCount;
-                } catch (e) {
-                    allJobs[jobId].failed++;
-                    if (String(e.message).includes('FLOOD')) await new Promise(r => setTimeout(r, 3000));
+            for (const f of files) {
+                const buffer = Buffer.from(f.buffer);
+                const times = Math.max(1, parseInt(f.count || repeatEach));
+                for (let k = 0; k < times; k++) {
+                    if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; break; }
+                    try {
+                        await client.tgClient.sendFile(d.target, { file: buffer, caption, forceDocument: false });
+                        sent++;
+                    } catch (e) {
+                        failed++;
+                        if (String(e.message).includes('FLOOD')) await new Promise(r => setTimeout(r, 3000));
+                    }
+                    allJobs[jobId].sent = sent; allJobs[jobId].failed = failed;
+                    broadcastJobs();
+                    await new Promise(r => setTimeout(r, 500));
                 }
-                broadcastJobs();
-                await new Promise(r => setTimeout(r, 500));
+                if (client.activeJobs[jobId]?.cancel) break;
             }
         } catch (e) { allJobs[jobId].status = 'error'; allJobs[jobId].error = e.message; }
         if (allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
