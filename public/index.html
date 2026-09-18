@@ -3,352 +3,398 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>⚡ PURPLE HACK v7.0</title>
+<title>⚡ PURPLE HACK v8.0</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-:root{--bg:#07020d;--card:rgba(30,15,55,0.6);--bd:rgba(184,71,255,0.2);--bd2:rgba(184,71,255,0.5);--p:#b847ff;--p2:#ff47b8;--cy:#00e0ff;--gr:#00ff95;--err:#ff2e5c;--wn:#ffbb33;--txt:#e8dbff;--dim:#8a7bb5}
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI','Cairo',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
-body{background:var(--bg);color:var(--txt);min-height:100vh;padding:16px;direction:rtl;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 15% 0%,rgba(184,71,255,.18) 0%,transparent 45%),radial-gradient(circle at 85% 100%,rgba(255,71,184,.15) 0%,transparent 45%);pointer-events:none;z-index:0}
-.wrap{max-width:620px;margin:0 auto;position:relative;z-index:1}
-.hd{text-align:center;padding:20px 0 18px}
-.hd .logo{font-size:32px;font-weight:900;letter-spacing:-1px;background:linear-gradient(135deg,#b847ff,#ff47b8,#00e0ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 25px rgba(184,71,255,.6))}
-.hd .tag{color:var(--dim);font-size:11px;margin-top:6px;letter-spacing:3px;text-transform:uppercase;font-weight:600}
-.hd .ch{display:inline-block;margin-top:10px;padding:5px 14px;background:rgba(255,71,184,.1);border:1px solid rgba(255,71,184,.3);border-radius:100px;color:#ff47b8;font-size:11px;font-weight:700}
-.sess{display:flex;gap:8px;background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--bd);border-radius:16px;padding:8px;margin-bottom:12px}
-.sess input{flex:1;padding:12px 14px;background:rgba(0,0,0,.4);border:1px solid transparent;border-radius:10px;color:var(--p);font-size:13px;direction:ltr;outline:none}
-.sess button{padding:0 20px;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px}
-.bar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.bar button{padding:11px;border-radius:12px;font-weight:700;cursor:pointer;font-size:12px;border:1px solid;display:flex;align-items:center;justify-content:center;gap:6px}
-.bar .b1{background:rgba(0,224,255,.15);color:var(--cy);border-color:rgba(0,224,255,.35)}
-.bar .b2{background:rgba(255,46,92,.15);color:#ff5c85;border-color:rgba(255,46,92,.35)}
-.ss{font-size:12px;text-align:center;padding:9px 14px;border-radius:10px;margin-bottom:12px;display:none;font-weight:600}
-.ss.show{display:block}
-.ss.ok{background:rgba(0,255,149,.1);color:var(--gr);border:1px solid rgba(0,255,149,.25)}
-.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-.tab{padding:16px 12px;background:var(--card);backdrop-filter:blur(20px);border:1.5px solid var(--bd);border-radius:14px;cursor:pointer;text-align:center;font-weight:800;color:var(--dim);font-size:13px;transition:.3s}
-.tab.active{background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border-color:transparent;box-shadow:0 8px 30px rgba(184,71,255,.45)}
-.tab.tg.active{background:linear-gradient(135deg,#0088ff,#00e0ff);box-shadow:0 8px 30px rgba(0,180,255,.45)}
-.card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--bd);border-radius:18px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden}
-.card::before{content:'';position:absolute;top:0;right:0;width:3px;height:60%;background:linear-gradient(180deg,var(--p),transparent);border-radius:0 18px 0 0;opacity:.7}
-.card h3{font-size:15px;font-weight:800;display:flex;align-items:center;gap:10px;margin-bottom:16px;color:#fff}
-.card h3 .n{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
-.st{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(0,0,0,.35);border:1px solid var(--bd);border-radius:12px;margin-bottom:14px;justify-content:space-between}
-.dot{width:10px;height:10px;border-radius:50%;background:#ff2e5c;box-shadow:0 0 0 4px rgba(255,46,92,.15),0 0 10px #ff2e5c;flex-shrink:0}
-.dot.on{background:var(--gr);box-shadow:0 0 0 4px rgba(0,255,149,.15),0 0 15px var(--gr);animation:pl 2s infinite}
-.dot.pending{background:var(--wn);box-shadow:0 0 0 4px rgba(255,187,51,.15),0 0 15px var(--wn);animation:pl 1s infinite}
-@keyframes pl{50%{transform:scale(.75);opacity:.7}}
-.st .txt{font-size:13px;font-weight:700;flex:1;color:#ff5c85}
-.st .txt.on{color:var(--gr)}.st .txt.pending{color:var(--wn)}
-.bo{background:rgba(255,46,92,.15);color:#ff5c85;border:1px solid rgba(255,46,92,.35);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;display:none}
-.bo.show{display:inline-block}
-input,textarea{width:100%;padding:14px;background:rgba(0,0,0,.35);border:1px solid var(--bd);border-radius:12px;color:var(--txt);font-size:14px;margin-bottom:8px;direction:ltr;text-align:left;font-family:inherit;outline:none;transition:.2s}
-input:focus,textarea:focus{border-color:var(--p);background:rgba(0,0,0,.5)}
-input::placeholder,textarea::placeholder{direction:rtl;text-align:right;color:var(--dim);opacity:.7}
-textarea{min-height:70px;resize:vertical}
-.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;box-shadow:0 6px 25px rgba(184,71,255,.4);transition:.25s}
-.btn:hover{transform:translateY(-2px)}
-.btn.blue{background:linear-gradient(135deg,#0088ff,#00e0ff);box-shadow:0 6px 25px rgba(0,180,255,.4)}
-.code{background:rgba(0,0,0,.5);border:2px dashed var(--bd2);padding:22px;border-radius:14px;text-align:center;margin:12px 0;display:none}
-.code.show{display:block}
-.code .lbl{color:var(--dim);font-size:11px;margin-bottom:10px;letter-spacing:3px;text-transform:uppercase;font-weight:700}
-.code .val{font-size:34px;font-weight:900;letter-spacing:5px;direction:ltr;background:linear-gradient(135deg,var(--p),var(--p2),var(--cy));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 15px rgba(184,71,255,.6));font-family:'Courier New',monospace}
-.code .info{color:var(--dim);font-size:11px;margin-top:12px}
-.msg{padding:12px 14px;border-radius:12px;font-size:13px;margin:10px 0;display:none;text-align:center;font-weight:600}
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,'Segoe UI',sans-serif}
+body{background:#0a0512;color:#e0d0ff;min-height:100vh;padding:12px;direction:rtl}
+.wrap{max-width:560px;margin:0 auto}
+h1{text-align:center;font-size:22px;padding:14px 0 6px;color:#b847ff}
+.sub{text-align:center;font-size:11px;color:#7a6b99;margin-bottom:14px}
+input,textarea,button{font-family:inherit;font-size:14px}
+input,textarea{width:100%;padding:12px;background:#15092a;border:1px solid #2a1b4e;border-radius:10px;color:#e0d0ff;margin-bottom:8px;outline:none;direction:ltr;text-align:left}
+input:focus,textarea:focus{border-color:#b847ff}
+input::placeholder,textarea::placeholder{direction:rtl;text-align:right;color:#5a4a7a}
+textarea{min-height:60px;resize:vertical}
+.b{width:100%;padding:14px;background:#b847ff;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;margin-bottom:8px;transition:.15s}
+.b:hover{background:#c95fff}
+.b:active{transform:scale(.98)}
+.b.blue{background:#0088ff}.b.blue:hover{background:#1a99ff}
+.b.gray{background:#2a1b4e;color:#a090c0}.b.gray:hover{background:#3a2b5e}
+.b.red{background:#c92040}.b.red:hover{background:#e03050}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.row button{margin:0;padding:10px;font-size:12px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.tab{padding:12px;background:#15092a;border:1px solid #2a1b4e;border-radius:10px;text-align:center;cursor:pointer;font-weight:700;color:#7a6b99;font-size:13px;transition:.15s}
+.tab.active{background:#b847ff;color:#fff;border-color:#b847ff}
+.tab.tg.active{background:#0088ff;border-color:#0088ff}
+.card{background:#15092a;border:1px solid #2a1b4e;border-radius:12px;padding:14px;margin-bottom:10px}
+.card h3{font-size:14px;margin-bottom:12px;color:#b847ff;display:flex;justify-content:space-between;align-items:center}
+.card h3 .st{font-size:11px;font-weight:normal;padding:3px 8px;border-radius:100px;background:#2a1b4e;color:#7a6b99}
+.card h3 .st.on{background:#1a5c2e;color:#00ff95}
+.card h3 .st.warn{background:#5c4a1a;color:#ffbb33}
+.msg{padding:10px;border-radius:8px;font-size:12px;margin:8px 0;text-align:center;display:none}
 .msg.show{display:block}
-.msg.ok{background:rgba(0,255,149,.08);color:var(--gr);border:1px solid rgba(0,255,149,.25)}
-.msg.err{background:rgba(255,46,92,.08);color:#ff5c85;border:1px solid rgba(255,46,92,.25)}
-.msg.warn{background:rgba(255,187,51,.08);color:var(--wn);border:1px solid rgba(255,187,51,.25)}
-.conn{display:none;background:linear-gradient(135deg,rgba(0,176,98,.2),rgba(0,255,149,.1));border:1px solid rgba(0,255,149,.4);color:var(--gr);padding:16px;border-radius:14px;text-align:center;font-size:14px;font-weight:800;box-shadow:0 0 30px rgba(0,255,149,.15)}
-.conn.show{display:block}
-.groups{max-height:320px;overflow-y:auto;background:rgba(0,0,0,.3);border-radius:12px;padding:6px;margin-top:10px;display:none;border:1px solid var(--bd)}
+.msg.ok{background:rgba(0,255,149,.1);color:#00ff95}
+.msg.err{background:rgba(255,46,92,.1);color:#ff5c85}
+.msg.warn{background:rgba(255,187,51,.1);color:#ffbb33}
+.code{background:#0a0512;border:1px dashed #b847ff;padding:16px;border-radius:10px;text-align:center;margin:8px 0;display:none}
+.code.show{display:block}
+.code .val{font-size:26px;font-weight:900;color:#b847ff;letter-spacing:3px;direction:ltr;font-family:monospace}
+.code .lbl{font-size:10px;color:#7a6b99;margin-bottom:6px;letter-spacing:2px}
+.groups{max-height:280px;overflow-y:auto;margin-top:8px;display:none}
 .groups.show{display:block}
-.gi{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;cursor:pointer;font-size:13px;transition:.2s;margin-bottom:4px}
-.gi:hover{background:rgba(184,71,255,.1);padding-right:18px}
-.gi .nm{font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gi .ct{color:var(--dim);font-size:11px;background:rgba(184,71,255,.15);padding:2px 8px;border-radius:100px;margin-left:8px}
-.gi .ic{color:var(--p);font-size:16px;margin-right:6px}
-.jobs{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--bd);border-radius:18px;padding:18px;margin-top:14px}
-.jobs h3{font-size:14px;font-weight:800;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:#fff}
-.jobs h3 button{background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--bd);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700}
-.ji{background:rgba(0,0,0,.35);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:8px;position:relative}
-.ji.running{border-color:var(--bd2);box-shadow:0 0 20px rgba(184,71,255,.15)}
-.ji.done{opacity:.55;border-color:rgba(0,255,149,.3)}
-.ji.stopped{border-color:rgba(255,187,51,.35);opacity:.75}
-.ji .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px}
-.ji .t{background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:800}
-.ji .t.tg{background:linear-gradient(135deg,#0088ff,#00e0ff)}
-.ji .s{font-weight:800;font-size:10px;padding:3px 10px;border-radius:100px}
-.ji .s.running{background:rgba(184,71,255,.2);color:var(--p)}
-.ji .s.done{background:rgba(0,255,149,.15);color:var(--gr)}
-.ji .s.stopped{background:rgba(255,187,51,.15);color:var(--wn)}
-.ji .tgt{color:#fff;font-size:13px;font-weight:700;direction:ltr;text-align:right;margin-bottom:8px;font-family:'Courier New',monospace}
-.ji .stt{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:8px}
-.ji .stt b{color:var(--p)}
-.ji .stt .f{color:#ff5c85}
-.ji .pg{height:5px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden}
-.ji .pf{height:100%;background:linear-gradient(90deg,var(--p),var(--p2));transition:width .4s}
-.ji.done .pf{background:linear-gradient(90deg,#00b062,#00ff95)}
-.jstop{position:absolute;left:12px;top:12px;background:rgba(255,46,92,.9);color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:800}
-.empty{text-align:center;color:var(--dim);padding:24px;font-size:13px;opacity:.6}
-.hint{background:rgba(255,187,51,.08);border:1px solid rgba(255,187,51,.25);border-radius:10px;padding:11px;font-size:12px;color:var(--wn);margin-bottom:8px;text-align:center}
-.modal{position:fixed;inset:0;background:rgba(7,2,13,.92);backdrop-filter:blur(10px);z-index:1000;display:none;align-items:center;justify-content:center;padding:12px}
-.modal.show{display:flex}
-.chat{width:100%;max-width:540px;height:88vh;background:linear-gradient(180deg,rgba(30,15,55,.98),rgba(15,5,32,.98));border:1px solid var(--bd2);border-radius:20px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 80px rgba(184,71,255,.35)}
-.chat-hd{padding:16px 18px;background:rgba(45,22,80,.9);border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:12px}
-.chat-hd .ti{flex:1;color:#fff;font-weight:800;font-size:14px;overflow:hidden}
-.chat-hd .ti .cn{color:var(--dim);font-size:11px;font-weight:600;margin-top:2px}
-.chat-hd .x{background:rgba(255,46,92,.15);border:1px solid rgba(255,46,92,.35);color:#ff5c85;width:34px;height:34px;border-radius:10px;cursor:pointer;font-weight:800;font-size:16px}
-.chat-bd{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:8px}
-.m{max-width:82%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.45;word-wrap:break-word}
-.m.them{background:linear-gradient(135deg,rgba(45,22,80,.9),rgba(30,15,55,.9));color:var(--txt);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid var(--bd)}
-.m.me{background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
-.m .sn{font-size:10px;font-weight:800;opacity:.75;margin-bottom:3px}
-.m .tm{font-size:9px;opacity:.65;margin-top:4px;text-align:left;direction:ltr}
-.chat-ft{padding:10px;background:rgba(20,10,40,.95);border-top:1px solid var(--bd);display:flex;gap:6px;flex-wrap:wrap}
-.chat-ft input[type=text]{flex:1;min-width:140px;margin:0;padding:11px 13px;font-size:13px;border-radius:10px}
-.chat-ft input[type=number]{width:56px;flex:0 0 56px;margin:0;padding:11px 6px;font-size:13px;text-align:center;border-radius:10px;font-weight:800;color:var(--p)}
-.chat-ft button{background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;padding:11px 16px;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px}
-.chat-loading{text-align:center;color:var(--dim);padding:30px;font-size:12px}
-.media-lbl{display:block;padding:16px;background:rgba(0,0,0,.35);border:2px dashed var(--bd2);border-radius:12px;text-align:center;cursor:pointer;transition:.2s}
-.media-lbl:hover{background:rgba(184,71,255,.08);border-color:var(--p)}
-.media-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,.03);margin-bottom:4px;font-size:12px;gap:8px}
-.media-item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.media-item input[type=number]{width:46px;margin:0;padding:4px 6px;font-size:11px;text-align:center;border-radius:6px}
-.media-item .del{background:rgba(255,46,92,.2);color:#ff5c85;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px}
+.gi{display:flex;justify-content:space-between;align-items:center;padding:10px;background:#0a0512;border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:12px}
+.gi:hover{background:#1a0d3a}
+.gi .cn{font-size:10px;background:#2a1b4e;color:#b847ff;padding:2px 8px;border-radius:100px;margin-left:6px}
+.media-lbl{display:block;padding:14px;background:#0a0512;border:2px dashed #2a1b4e;border-radius:10px;text-align:center;cursor:pointer;margin-bottom:8px;transition:.15s}
+.media-lbl:hover{border-color:#b847ff;background:#1a0d3a}
+.media-lbl .ic{font-size:22px}
+.media-lbl .tx{font-size:11px;color:#7a6b99;margin-top:4px}
+.mi{display:flex;justify-content:space-between;align-items:center;padding:8px;background:#0a0512;border-radius:8px;margin-bottom:4px;font-size:11px;gap:6px}
+.mi .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mi input[type=number]{width:44px;margin:0;padding:4px;font-size:11px;text-align:center}
+.mi button{background:#c92040;color:#fff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;margin:0;width:auto}
+.jobs{margin-top:10px}
+.ji{background:#0a0512;border:1px solid #2a1b4e;border-radius:10px;padding:12px;margin-bottom:6px}
+.ji .hdr{display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;color:#7a6b99}
+.ji .hdr .t{color:#b847ff;font-weight:700}
+.ji .tgt{font-size:12px;color:#fff;font-family:monospace;direction:ltr;text-align:right;margin-bottom:6px;word-break:break-all}
+.ji .pg{height:4px;background:#15092a;border-radius:2px;overflow:hidden}
+.ji .pf{height:100%;background:#b847ff;transition:width .2s}
+.ji .stats{display:flex;justify-content:space-between;font-size:11px;color:#7a6b99;margin-bottom:6px}
+.ji .stats b{color:#b847ff}
+.ji.done .pf{background:#00ff95}
+.modal{position:fixed;inset:0;background:rgba(10,5,18,.95);z-index:1000;display:none;padding:10px}
+.modal.show{display:flex;align-items:center;justify-content:center}
+.chat{width:100%;max-width:520px;height:85vh;background:#15092a;border:1px solid #2a1b4e;border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+.chat-hd{padding:12px;background:#0a0512;border-bottom:1px solid #2a1b4e;display:flex;justify-content:space-between;align-items:center}
+.chat-hd .ti{color:#fff;font-size:13px;font-weight:700;flex:1;overflow:hidden}
+.chat-hd .cn{color:#7a6b99;font-size:10px;margin-top:2px}
+.chat-hd .x{background:#c92040;color:#fff;border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-weight:700}
+.chat-bd{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px}
+.m{max-width:80%;padding:8px 12px;border-radius:12px;font-size:12px;line-height:1.4;word-wrap:break-word}
+.m.them{background:#2a1b4e;align-self:flex-start;border-bottom-left-radius:3px}
+.m.me{background:#b847ff;color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+.m .sn{font-size:10px;font-weight:700;opacity:.7;margin-bottom:2px}
+.m .tm{font-size:9px;opacity:.6;margin-top:3px;text-align:left;direction:ltr}
+.chat-ft{padding:8px;background:#0a0512;border-top:1px solid #2a1b4e;display:flex;gap:6px}
+.chat-ft input{flex:1;margin:0;padding:10px;font-size:12px}
+.chat-ft input[type=number]{width:50px;flex:0 0 50px;text-align:center}
+.chat-ft button{background:#b847ff;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:700;margin:0;width:auto}
+.empty{text-align:center;color:#5a4a7a;padding:20px;font-size:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="hd"><div class="logo">⚡ PURPLE HACK</div><div class="tag">WhatsApp · Telegram · v7.0</div><div class="ch">📢 @PUBG_SKIN_HACKE</div></div>
-  <div class="sess"><input type="text" id="sessionInput" placeholder="🆔 Session ID..."><button onclick="registerSession()">🔌 اتصال</button></div>
-  <div class="bar"><button class="b1" onclick="waReconnect()">🔄 إعادة الاتصال</button><button class="b2" onclick="wipeSessions()">🗑️ مسح الجلسات</button></div>
-  <div class="ss" id="sessionStatus"></div>
-  <div class="tabs"><div class="tab active" onclick="switchTab('wa')">📱 واتساب</div><div class="tab tg" onclick="switchTab('tg')">✈️ تليجرام</div></div>
+  <h1>⚡ PURPLE HACK</h1>
+  <div class="sub">v8.0 · أقصى سرعة</div>
 
+  <input type="text" id="sessionInput" placeholder="🆔 Session ID...">
+  <button class="b" onclick="registerSession()">🔌 اتصال</button>
+
+  <div class="row">
+    <button class="b gray" onclick="waReconnect()">🔄 إعادة الاتصال</button>
+    <button class="b red" onclick="wipeSessions()">🗑️ مسح الكل</button>
+  </div>
+
+  <div class="msg" id="sessionStatus"></div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('wa')">📱 واتساب</div>
+    <div class="tab tg" onclick="switchTab('tg')">✈️ تليجرام</div>
+  </div>
+
+  <!-- WhatsApp -->
   <div id="waPanel">
     <div class="card">
-      <h3><span class="n">1</span> ربط الواتساب</h3>
-      <div class="st"><span class="dot" id="waDot"></span><span class="txt" id="waStatus">غير متصل</span><button class="bo" id="waLogoutBtn" onclick="waLogout()">🚪 خروج</button></div>
-      <div id="waConnectSection">
+      <h3>ربط الواتساب <span class="st" id="waSt">غير متصل</span></h3>
+      <div id="waConn">
         <input type="text" id="waPhone" placeholder="📱 رقمك (201012345678)">
-        <button class="btn" onclick="waConnect()">🔑 طلب كود الربط</button>
-        <div class="code" id="waCodeBox"><div class="lbl">🔑 Pairing Code</div><div class="val" id="waCode">----</div><div class="info">واتساب ← الأجهزة المرتبطة ← الربط برقم الهاتف</div></div>
+        <button class="b" onclick="waConnect()">🔑 طلب كود الربط</button>
+        <button class="b gray" onclick="waLogout()">🚪 تسجيل الخروج</button>
+        <div class="code" id="waCodeBox"><div class="lbl">🔑 كود الربط</div><div class="val" id="waCode">----</div></div>
         <div class="msg" id="waCodeMsg"></div>
       </div>
-      <div class="conn" id="waConnectedBadge">✅ الواتساب متصل وشغال!</div>
     </div>
 
     <div class="card">
-      <h3><span class="n">2</span> سبام نصوص</h3>
-      <input type="text" id="waTarget" placeholder="📱 رقم الهدف أو @g.us">
-      <textarea id="waMsg" placeholder="💬 اكتب رسالتك...">Hello!</textarea>
+      <h3>🚀 إرسال نصوص (أقصى سرعة)</h3>
+      <input type="text" id="waTarget" placeholder="📱 رقم أو @g.us">
+      <textarea id="waMsg" placeholder="💬 الرسالة">Hello!</textarea>
       <input type="number" id="waCount" value="10" placeholder="🔢 العدد">
-      <button class="btn" onclick="waSend()">⚡ إرسال نص</button>
+      <button class="b" onclick="waSend()">⚡ انطلق (30 متوازي للرقم)</button>
     </div>
 
     <div class="card">
-      <h3><span class="n">3</span> سبام وسائط 🎬</h3>
-      <div class="hint">اختر صور أو فيديوهات متعددة، وحدد عدد التكرار لكل ملف</div>
+      <h3>🎬 صور وفيديوهات</h3>
       <label for="waMediaFile" class="media-lbl">
-        <div style="font-size:26px">📎</div>
-        <div style="font-size:12px;color:var(--dim);margin-top:6px" id="waMediaName">اضغط لاختيار ملفات (متعدد)</div>
+        <div class="ic">📎</div>
+        <div class="tx" id="waMName">اختر ملفات (متعدد)</div>
       </label>
-      <input type="file" id="waMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="mediaPicked('wa',this)">
-      <div id="waMediaList" style="display:none;margin-top:10px;max-height:200px;overflow-y:auto;background:rgba(0,0,0,.3);border-radius:10px;padding:8px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-        <input type="number" id="waMediaRepeat" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
-        <input type="text" id="waMediaCaption" placeholder="💬 تعليق" style="margin:0">
+      <input type="file" id="waMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="pickMedia('wa',this)">
+      <div id="waMList" style="display:none;max-height:180px;overflow-y:auto"></div>
+      <div class="row">
+        <input type="number" id="waMRep" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
+        <input type="text" id="waMCap" placeholder="تعليق" style="margin:0">
       </div>
-      <button class="btn" onclick="sendMedia('wa')" style="margin-top:8px">🖼️ إرسال (<span id="waMediaTotal">0</span>)</button>
+      <button class="b" onclick="sendMedia('wa')" style="margin-top:8px">🎬 إرسال (<span id="waMTot">0</span>)</button>
     </div>
 
     <div class="card">
-      <h3><span class="n">4</span> الجروبات</h3>
-      <button class="btn" onclick="waGroups()">🔄 جلب الجروبات</button>
+      <h3>👥 الجروبات</h3>
+      <button class="b gray" onclick="waGroups()">🔄 جلب الجروبات</button>
       <div class="groups" id="waGroupsList"></div>
     </div>
   </div>
 
+  <!-- Telegram -->
   <div id="tgPanel" style="display:none">
     <div class="card">
-      <h3><span class="n">1</span> ربط التليجرام</h3>
-      <div class="st"><span class="dot" id="tgDot"></span><span class="txt" id="tgStatus">غير متصل</span><button class="bo" id="tgLogoutBtn" onclick="tgLogout()">🚪 خروج</button></div>
-      <div id="tgConnectSection">
-        <div class="hint">API مضبوط — تحتاج رقمك فقط</div>
+      <h3>ربط التليجرام <span class="st" id="tgSt">غير متصل</span></h3>
+      <div id="tgConn">
         <input type="text" id="tgPhone" placeholder="📱 رقمك">
-        <button class="btn blue" onclick="tgConnect()">📩 إرسال كود</button>
-        <input type="text" id="tgCode" placeholder="📩 الكود" style="display:none">
-        <button class="btn blue" id="tgVerifyBtn" onclick="tgVerify()" style="display:none">✅ تأكيد</button>
-        <input type="text" id="tgPassword" placeholder="🔐 2FA" style="display:none">
-        <button class="btn blue" id="tgPassBtn" onclick="tgPasswordSubmit()" style="display:none">✅ تأكيد</button>
-        <div class="msg" id="tgCodeMsg"></div>
+        <button class="b blue" onclick="tgConnect()">📩 إرسال كود</button>
+        <button class="b gray" onclick="tgLogout()">🚪 تسجيل الخروج</button>
+        <input type="text" id="tgCode" placeholder="📩 كود التحقق" style="display:none">
+        <button class="b blue" id="tgVB" onclick="tgVerify()" style="display:none">✅ تأكيد</button>
+        <input type="text" id="tgPass" placeholder="🔐 2FA" style="display:none">
+        <button class="b blue" id="tgPB" onclick="tgPassSubmit()" style="display:none">✅ تأكيد</button>
+        <div class="msg" id="tgMsg"></div>
       </div>
-      <div class="conn" id="tgConnectedBadge">✅ التليجرام متصل!</div>
     </div>
 
     <div class="card">
-      <h3><span class="n">2</span> سبام نصوص</h3>
+      <h3>🚀 إرسال نصوص</h3>
       <input type="text" id="tgTarget" placeholder="👤 @username">
-      <textarea id="tgMsg" placeholder="💬 رسالتك...">Hello!</textarea>
+      <textarea id="tgMsgIn" placeholder="💬 الرسالة">Hello!</textarea>
       <input type="number" id="tgCount" value="10" placeholder="🔢 العدد">
-      <button class="btn blue" onclick="tgSend()">⚡ إرسال</button>
+      <button class="b blue" onclick="tgSend()">⚡ انطلق (5 متوازي)</button>
     </div>
 
     <div class="card">
-      <h3><span class="n">3</span> سبام وسائط 🎬</h3>
+      <h3>🎬 صور وفيديوهات</h3>
       <label for="tgMediaFile" class="media-lbl">
-        <div style="font-size:26px">📎</div>
-        <div style="font-size:12px;color:var(--dim);margin-top:6px" id="tgMediaName">اضغط لاختيار ملفات (متعدد)</div>
+        <div class="ic">📎</div>
+        <div class="tx" id="tgMName">اختر ملفات (متعدد)</div>
       </label>
-      <input type="file" id="tgMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="mediaPicked('tg',this)">
-      <div id="tgMediaList" style="display:none;margin-top:10px;max-height:200px;overflow-y:auto;background:rgba(0,0,0,.3);border-radius:10px;padding:8px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-        <input type="number" id="tgMediaRepeat" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
-        <input type="text" id="tgMediaCaption" placeholder="💬 تعليق" style="margin:0">
+      <input type="file" id="tgMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="pickMedia('tg',this)">
+      <div id="tgMList" style="display:none;max-height:180px;overflow-y:auto"></div>
+      <div class="row">
+        <input type="number" id="tgMRep" value="1" min="1" placeholder="× لكل ملف" style="margin:0">
+        <input type="text" id="tgMCap" placeholder="تعليق" style="margin:0">
       </div>
-      <button class="btn blue" onclick="sendMedia('tg')" style="margin-top:8px">🖼️ إرسال (<span id="tgMediaTotal">0</span>)</button>
+      <button class="b blue" onclick="sendMedia('tg')" style="margin-top:8px">🎬 إرسال (<span id="tgMTot">0</span>)</button>
     </div>
 
     <div class="card">
-      <h3><span class="n">4</span> الجروبات</h3>
-      <button class="btn blue" onclick="tgGroups()">🔄 جلب</button>
+      <h3>👥 الجروبات</h3>
+      <button class="b gray" onclick="tgGroups()">🔄 جلب</button>
       <div class="groups" id="tgGroupsList"></div>
     </div>
   </div>
 
-  <div class="jobs">
-    <h3><span>📊 العمليات</span><button onclick="clearJobs()">🗑️ مسح</button></h3>
-    <div id="jobsList"><div class="empty">لا توجد عمليات</div></div>
+  <!-- Jobs -->
+  <div class="card">
+    <h3>📊 العمليات <button class="b gray" style="width:auto;padding:4px 10px;font-size:11px;margin:0" onclick="clearJobs()">مسح</button></h3>
+    <div class="jobs" id="jobsList"><div class="empty">لا توجد عمليات</div></div>
   </div>
 </div>
 
 <div class="modal" id="waModal">
   <div class="chat">
-    <div class="chat-hd"><div class="ti"><div id="waChatTitle">📱 جروب</div><div class="cn" id="waChatCount">—</div></div><button class="x" onclick="closeWAChat()">✕</button></div>
-    <div class="chat-bd" id="waChatMessages"><div class="chat-loading">⏳ جاري التحميل...</div></div>
+    <div class="chat-hd">
+      <div><div class="ti" id="waChatTitle">جروب</div><div class="cn" id="waChatCount">—</div></div>
+      <button class="x" onclick="closeChat()">✕</button>
+    </div>
+    <div class="chat-bd" id="waChatMsgs"><div class="empty">⏳ جاري التحميل...</div></div>
     <div class="chat-ft">
-      <input type="text" id="waChatInput" placeholder="اكتب رسالة..." onkeypress="if(event.key==='Enter') waChatSend()">
-      <input type="number" id="waChatCountInput" value="1" min="1" max="100" title="عدد">
-      <button onclick="waChatSend()">📤</button>
+      <input type="text" id="waChatInput" placeholder="اكتب..." onkeypress="if(event.key==='Enter')sendChat()">
+      <input type="number" id="waChatCount2" value="1" min="1">
+      <button onclick="sendChat()">📤</button>
     </div>
   </div>
 </div>
 
 <script>
 const socket = io({timeout:600000,reconnection:true,reconnectionDelay:3000,reconnectionAttempts:Infinity,transports:['websocket','polling']});
-let currentSession='', currentChatGroupId=null;
+let currentSession='', currentChatGid=null;
 const mediaFiles = { wa:[], tg:[] };
 
-function setWAUI(c){document.getElementById('waConnectSection').style.display=c?'none':'block';document.getElementById('waConnectedBadge').classList.toggle('show',c);document.getElementById('waLogoutBtn').classList.toggle('show',c);}
-function setTGUI(c){document.getElementById('tgConnectSection').style.display=c?'none':'block';document.getElementById('tgConnectedBadge').classList.toggle('show',c);document.getElementById('tgLogoutBtn').classList.toggle('show',c);}
-function registerSession(){const s=document.getElementById('sessionInput').value.trim();if(!s)return alert('اكتب Session ID');currentSession=s;localStorage.setItem('session_id',s);socket.emit('register-session',s);const el=document.getElementById('sessionStatus');el.textContent='✅ متصل بـ '+s;el.classList.add('show');}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtSize(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(2)+'MB';}
+function showMsg(id,txt,type){const e=document.getElementById(id);e.textContent=txt;e.className='msg show '+type;}
+
+function registerSession(){
+  const s=document.getElementById('sessionInput').value.trim();
+  if(!s)return alert('اكتب Session ID');
+  currentSession=s;localStorage.setItem('session_id',s);
+  socket.emit('register-session',s);
+  showMsg('sessionStatus','✅ متصل بـ '+s,'ok');
+}
 window.addEventListener('load',()=>{const s=localStorage.getItem('session_id');if(s){document.getElementById('sessionInput').value=s;registerSession();}});
 socket.on('connect',()=>{if(currentSession)socket.emit('register-session',currentSession);});
-function waReconnect(){if(!currentSession)return alert('اكتب Session ID');socket.emit('wa-reconnect');}
-async function wipeSessions(){if(!confirm('⚠️ مسح كل الجلسات؟'))return;if(!confirm('تأكيد نهائي؟'))return;try{const r=await fetch('/api/wipe-sessions',{method:'POST'});const j=await r.json();if(j.success){alert('✅ تم المسح!');location.reload();}else alert('❌ '+(j.error||'فشل'));}catch(e){alert('❌ '+e.message);}}
 
-socket.on('wa-status',(st)=>{const d=document.getElementById('waDot'),t=document.getElementById('waStatus');d.classList.remove('on','pending');t.classList.remove('on','pending');if(st==='connected'){d.classList.add('on');t.classList.add('on');t.textContent='متصل ✓';setWAUI(true);}else if(st==='connecting'){d.classList.add('pending');t.classList.add('pending');t.textContent='جاري الاتصال...';setWAUI(false);}else if(st==='session_exists'){t.classList.add('pending');t.textContent='جلسة موجودة — اضغط إعادة الاتصال';setWAUI(false);}else if(st==='reconnecting'){d.classList.add('pending');t.classList.add('pending');t.textContent='إعادة اتصال...';setWAUI(false);}else if(st==='logged_out'){t.textContent='تم تسجيل الخروج';setWAUI(false);}else{t.textContent='غير متصل';setWAUI(false);}});
+function setWASt(st,txt){
+  const e=document.getElementById('waSt');e.textContent=txt;e.className='st';
+  if(st==='connected')e.classList.add('on');
+  else if(st==='pending')e.classList.add('warn');
+}
+function setTGSt(st,txt){
+  const e=document.getElementById('tgSt');e.textContent=txt;e.className='st';
+  if(st==='connected')e.classList.add('on');
+  else if(st==='pending')e.classList.add('warn');
+}
+
+socket.on('wa-status',(s)=>{
+  if(s==='connected')setWASt('connected','✅ متصل');
+  else if(s==='connecting')setWASt('pending','🔄 يتصل...');
+  else if(s==='reconnecting')setWASt('pending','🔄 إعادة...');
+  else if(s==='session_exists')setWASt('pending','🔑 جلسة موجودة');
+  else if(s==='logged_out')setWASt('off','🚪 خروج');
+  else setWASt('off','❌ غير متصل');
+});
 socket.on('wa-code',(c)=>{document.getElementById('waCodeBox').classList.add('show');document.getElementById('waCode').textContent=c;});
-socket.on('wa-code-status',(m)=>{const b=document.getElementById('waCodeMsg');b.textContent=m;b.className='msg show '+(m.includes('❌')?'err':m.includes('✅')?'ok':'warn');});
+socket.on('wa-code-status',(m)=>{showMsg('waCodeMsg',m,m.includes('❌')?'err':'ok');});
 
-// ═════ MEDIA PICKERS ═════
-function fmtSize(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(2)+'MB';}
-function escHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-async function mediaPicked(platform, inp){
-  const fs = Array.from(inp.files||[]);
-  inp.value = '';
-  if(!fs.length) return;
+// MEDIA
+async function pickMedia(platform, inp){
+  const fs=Array.from(inp.files||[]); inp.value='';
   for(const f of fs){
-    if(f.size > 20*1048576){ alert('❌ '+f.name+' أكبر من 20 ميجا'); continue; }
-    try {
-      const buf = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(new Uint8Array(r.result));
-        r.onerror = rej;
-        r.readAsArrayBuffer(f);
-      });
-      mediaFiles[platform].push({ name:f.name, size:f.size, mimetype:f.type||'application/octet-stream', buffer:buf, count:1 });
-    } catch(e) { alert('❌ فشل قراءة '+f.name); }
+    if(f.size>20*1048576){alert('❌ '+f.name+' > 20MB');continue;}
+    try{
+      const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(new Uint8Array(r.result));r.onerror=rej;r.readAsArrayBuffer(f);});
+      mediaFiles[platform].push({name:f.name,size:f.size,mimetype:f.type||'application/octet-stream',buffer:buf,count:1});
+    }catch(e){alert('فشل قراءة '+f.name);}
   }
   renderMedia(platform);
 }
 function renderMedia(platform){
-  const files = mediaFiles[platform];
-  const list = document.getElementById(platform+'MediaList');
-  const nameEl = document.getElementById(platform+'MediaName');
-  const totalEl = document.getElementById(platform+'MediaTotal');
-  if(!files.length){ list.style.display='none'; nameEl.textContent='اضغط لاختيار ملفات (متعدد)'; totalEl.textContent='0'; return; }
-  nameEl.textContent = '✅ '+files.length+' ملف مختار';
-  list.style.display = 'block';
-  let total = 0;
-  list.innerHTML = files.map((f,i)=>{
-    const times = f.count || 1;
-    total += times;
-    return `<div class="media-item">
-      <div class="nm">${f.mimetype.startsWith('video/')?'🎬':'🖼️'} ${escHtml(f.name)} <span style="color:var(--dim);font-size:10px">(${fmtSize(f.size)})</span></div>
-      <input type="number" value="${times}" min="1" max="100" onchange="updCount('${platform}',${i},this.value)">
-      <button class="del" onclick="delMedia('${platform}',${i})">✕</button>
-    </div>`;
+  const fs=mediaFiles[platform];
+  const list=document.getElementById(platform+'MList');
+  const nameEl=document.getElementById(platform+'MName');
+  const totalEl=document.getElementById(platform+'MTot');
+  if(!fs.length){list.style.display='none';nameEl.textContent='اختر ملفات (متعدد)';totalEl.textContent='0';return;}
+  nameEl.textContent='✅ '+fs.length+' ملف';
+  list.style.display='block';
+  let tot=0;
+  list.innerHTML=fs.map((f,i)=>{
+    const t=f.count||1;tot+=t;
+    return `<div class="mi"><div class="nm">${f.mimetype.startsWith('video/')?'🎬':'🖼️'} ${esc(f.name)} (${fmtSize(f.size)})</div><input type="number" value="${t}" min="1" onchange="updCount('${platform}',${i},this.value)"><button onclick="delMedia('${platform}',${i})">✕</button></div>`;
   }).join('');
-  totalEl.textContent = total;
+  totalEl.textContent=tot;
 }
-function updCount(platform, i, v){ mediaFiles[platform][i].count = Math.max(1, parseInt(v)||1); renderMedia(platform); }
-function delMedia(platform, i){ mediaFiles[platform].splice(i,1); renderMedia(platform); }
-
+function updCount(p,i,v){mediaFiles[p][i].count=Math.max(1,parseInt(v)||1);renderMedia(p);}
+function delMedia(p,i){mediaFiles[p].splice(i,1);renderMedia(p);}
 function sendMedia(platform){
-  if(!currentSession) return alert('اكتب Session ID');
-  const files = mediaFiles[platform];
-  if(!files.length) return alert('اختر ملف واحد على الأقل');
-  const targetId = platform==='wa' ? 'waTarget' : 'tgTarget';
-  const target = document.getElementById(targetId).value.trim();
-  if(!target) return alert('اكتب الهدف');
-  const cap = document.getElementById(platform+'MediaCaption').value;
-  const repeatEach = Math.max(1, parseInt(document.getElementById(platform+'MediaRepeat').value)||1);
-  // ابعت نسخة بدون buffer مباشرة (Socket.IO هيتصرف)
-  const filesPayload = files.map(f => ({ name:f.name, size:f.size, mimetype:f.mimetype, buffer:f.buffer, count:f.count||repeatEach }));
-  if(platform==='wa') socket.emit('wa-spam-media', { number:target, files:filesPayload, caption:cap, repeatEach });
-  else socket.emit('tg-spam-media', { target, files:filesPayload, caption:cap, repeatEach });
-  alert('⏳ جاري الإرسال... تابع شريط العمليات');
+  if(!currentSession)return alert('اكتب Session ID');
+  const fs=mediaFiles[platform];
+  if(!fs.length)return alert('اختر ملفات');
+  const target=document.getElementById(platform==='wa'?'waTarget':'tgTarget').value.trim();
+  if(!target)return alert('اكتب الهدف');
+  const cap=document.getElementById(platform+'MCap').value;
+  const rep=Math.max(1,parseInt(document.getElementById(platform+'MRep').value)||1);
+  const payload=fs.map(f=>({name:f.name,size:f.size,mimetype:f.mimetype,buffer:f.buffer,count:f.count||rep}));
+  if(platform==='wa')socket.emit('wa-spam-media',{number:target,files:payload,caption:cap,repeatEach:rep});
+  else socket.emit('tg-spam-media',{target,files:payload,caption:cap,repeatEach:rep});
+  alert('⏳ بدأ الإرسال');
 }
 
-// ═════ GROUPS ═════
-socket.on('wa-groups-list',(gs)=>{const el=document.getElementById('waGroupsList');el.classList.add('show');if(!gs.length){el.innerHTML='<div class="empty">لا توجد</div>';return;}el.innerHTML=gs.map(g=>{const sn=g.name.replace(/'/g,"\\'");return `<div class="gi" data-gid="${g.id}" onclick="openWAChat('${g.id}','${sn}')"><span class="nm">📌 ${g.name}</span><span><span class="ct">${g.count||0}</span><span class="ic">💬</span></span></div>`;}).join('');});
-function openWAChat(gid,gname){currentChatGroupId=gid;document.getElementById('waChatTitle').textContent='📱 '+gname;document.getElementById('waChatCount').textContent='⏳ جاري التحميل...';document.getElementById('waChatMessages').innerHTML='<div class="chat-loading">⏳ جاري التحميل...</div>';document.getElementById('waModal').classList.add('show');socket.emit('wa-group-messages',gid);}
-function closeWAChat(){document.getElementById('waModal').classList.remove('show');currentChatGroupId=null;}
-socket.on('wa-group-messages-list',(d)=>{if(d.groupId!==currentChatGroupId)return;document.getElementById('waChatCount').textContent='📨 '+d.count+' رسالة';const el=document.getElementById('waChatMessages');if(!d.messages||!d.messages.length){el.innerHTML='<div class="chat-loading">لا توجد رسائل</div>';return;}el.innerHTML=d.messages.map(m=>{const cls=m.fromMe?'me':'them';const time=m.time?new Date(m.time*1000).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'';const sender=m.fromMe?'أنت':(m.pushName||m.from||'?');return `<div class="m ${cls}"><div class="sn">${escHtml(sender)}</div><div>${escHtml(m.text)}</div><div class="tm">${time}</div></div>`;}).join('');el.scrollTop=el.scrollHeight;});
-socket.on('wa-new-message',(d)=>{if(d.groupId!==currentChatGroupId)return;const el=document.getElementById('waChatMessages');const m=d.message;if(!m)return;const load=el.querySelector('.chat-loading');if(load)load.remove();const cls=m.fromMe?'me':'them';const time=m.time?new Date(m.time*1000).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'';const sender=m.fromMe?'أنت':(m.pushName||m.from||'?');el.innerHTML+=`<div class="m ${cls}"><div class="sn">${escHtml(sender)}</div><div>${escHtml(m.text)}</div><div class="tm">${time}</div></div>`;el.scrollTop=el.scrollHeight;const cnt=el.querySelectorAll('.m').length;document.getElementById('waChatCount').textContent='📨 '+cnt+' رسالة';});
-function waChatSend(){const inp=document.getElementById('waChatInput');const text=inp.value.trim();if(!text||!currentChatGroupId)return;const cnt=Math.max(1,parseInt(document.getElementById('waChatCountInput').value)||1);socket.emit('wa-group-send',{groupId:currentChatGroupId,text,count:cnt});inp.value='';}
-socket.on('wa-group-send-ok',(d)=>{if(d.groupId!==currentChatGroupId)return;const el=document.getElementById('waChatMessages');const time=new Date(d.time*1000).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});el.innerHTML+=`<div class="m me"><div class="sn">أنت</div><div>${escHtml(d.text)}</div><div class="tm">${time}${d.total>1?' · '+d.index+'/'+d.total:''}</div></div>`;el.scrollTop=el.scrollHeight;});
-socket.on('wa-group-send-done',(d)=>{if(d.groupId!==currentChatGroupId)return;document.getElementById('waChatCount').textContent='✅ '+d.ok+'/'+d.total+' نجح'+(d.failed?' · '+d.failed+' فشل':'');});
-socket.on('wa-cache-update',(gs)=>{if(!currentSession)return;const el=document.getElementById('waGroupsList');if(!el.classList.contains('show'))return;el.querySelectorAll('.gi').forEach(it=>{const gid=it.dataset.gid;const g=gs.find(x=>x.id===gid);if(g){const c=it.querySelector('.ct');if(c)c.textContent=g.count;}});});
+// GROUPS
+socket.on('wa-groups-list',(gs)=>{
+  const el=document.getElementById('waGroupsList');el.classList.add('show');
+  if(!gs.length){el.innerHTML='<div class="empty">لا توجد جروبات</div>';return;}
+  el.innerHTML=gs.map(g=>`<div class="gi" data-gid="${g.id}" onclick="openChat('${g.id}','${g.name.replace(/'/g,"\\'")}')"><span>📌 ${esc(g.name)}</span><span><span class="cn">${g.count||0}</span>💬</span></div>`).join('');
+});
+function openChat(gid,name){currentChatGid=gid;document.getElementById('waChatTitle').textContent=name;document.getElementById('waChatCount').textContent='...';document.getElementById('waChatMsgs').innerHTML='<div class="empty">⏳ تحميل...</div>';document.getElementById('waModal').classList.add('show');socket.emit('wa-group-messages',gid);}
+function closeChat(){document.getElementById('waModal').classList.remove('show');currentChatGid=null;}
+socket.on('wa-group-messages-list',(d)=>{
+  if(d.groupId!==currentChatGid)return;
+  document.getElementById('waChatCount').textContent='📨 '+d.count+' رسالة';
+  const el=document.getElementById('waChatMsgs');
+  if(!d.messages||!d.messages.length){el.innerHTML='<div class="empty">لا توجد رسائل</div>';return;}
+  el.innerHTML=d.messages.map(m=>{
+    const c=m.fromMe?'me':'them',t=m.time?new Date(m.time*1000).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'';
+    const s=m.fromMe?'أنت':(m.pushName||m.from||'?');
+    return `<div class="m ${c}"><div class="sn">${esc(s)}</div><div>${esc(m.text)}</div><div class="tm">${t}</div></div>`;
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+});
+socket.on('wa-new-message',(d)=>{
+  if(d.groupId!==currentChatGid)return;
+  const el=document.getElementById('waChatMsgs');const m=d.message;
+  const ld=el.querySelector('.empty');if(ld)ld.remove();
+  const c=m.fromMe?'me':'them',t=m.time?new Date(m.time*1000).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'';
+  const s=m.fromMe?'أنت':(m.pushName||m.from||'?');
+  el.innerHTML+=`<div class="m ${c}"><div class="sn">${esc(s)}</div><div>${esc(m.text)}</div><div class="tm">${t}</div></div>`;
+  el.scrollTop=el.scrollHeight;
+});
+function sendChat(){const i=document.getElementById('waChatInput');const t=i.value.trim();if(!t||!currentChatGid)return;const c=Math.max(1,parseInt(document.getElementById('waChatCount2').value)||1);socket.emit('wa-group-send',{groupId:currentChatGid,text:t,count:c});i.value='';}
+socket.on('wa-group-send-ok',(d)=>{
+  if(d.groupId!==currentChatGid)return;
+  const el=document.getElementById('waChatMsgs');const t=new Date(d.time*1000).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+  el.innerHTML+=`<div class="m me"><div class="sn">أنت</div><div>${esc(d.text)}</div><div class="tm">${t}</div></div>`;
+  el.scrollTop=el.scrollHeight;
+});
+socket.on('wa-cache-update',(gs)=>{
+  const el=document.getElementById('waGroupsList');
+  if(!el.classList.contains('show'))return;
+  el.querySelectorAll('.gi').forEach(it=>{const g=gs.find(x=>x.id===it.dataset.gid);if(g){const c=it.querySelector('.cn');if(c)c.textContent=g.count;}});
+});
 
-// ═════ TG ═════
-socket.on('tg-status',(st)=>{const d=document.getElementById('tgDot'),t=document.getElementById('tgStatus');d.classList.remove('on','pending');t.classList.remove('on','pending');if(st==='connected'){d.classList.add('on');t.classList.add('on');t.textContent='متصل ✓';setTGUI(true);}else if(st==='connecting'){d.classList.add('pending');t.classList.add('pending');t.textContent='جاري الاتصال...';}else{t.textContent='غير متصل';setTGUI(false);}});
-socket.on('tg-code-status',(m)=>{const b=document.getElementById('tgCodeMsg');b.textContent=m;b.className='msg show '+(m.includes('❌')?'err':m.includes('✅')?'ok':'warn');});
-socket.on('tg-need-code',()=>{document.getElementById('tgCode').style.display='block';document.getElementById('tgVerifyBtn').style.display='block';});
-socket.on('tg-need-password',()=>{document.getElementById('tgPassword').style.display='block';document.getElementById('tgPassBtn').style.display='block';});
-socket.on('tg-groups-list',(gs)=>{const el=document.getElementById('tgGroupsList');el.classList.add('show');if(!gs.length){el.innerHTML='<div class="empty">لا توجد</div>';return;}el.innerHTML=gs.map(g=>`<div class="gi" onclick="document.getElementById('tgTarget').value='${g.id}'"><span class="nm">📌 ${g.name}</span><span class="ic">↗</span></div>`).join('');});
-socket.on('logout-done',(t)=>{alert('✅ تم تسجيل الخروج من '+t);if(t==='whatsapp')setWAUI(false);if(t==='telegram')setTGUI(false);});
+// TG
+socket.on('tg-status',(s)=>{
+  if(s==='connected')setTGSt('connected','✅ متصل');
+  else if(s==='connecting')setTGSt('pending','🔄...');
+  else setTGSt('off','❌ غير متصل');
+});
+socket.on('tg-code-status',(m)=>showMsg('tgMsg',m,m.includes('❌')?'err':'ok'));
+socket.on('tg-need-code',()=>{document.getElementById('tgCode').style.display='block';document.getElementById('tgVB').style.display='block';});
+socket.on('tg-need-password',()=>{document.getElementById('tgPass').style.display='block';document.getElementById('tgPB').style.display='block';});
+socket.on('tg-groups-list',(gs)=>{
+  const el=document.getElementById('tgGroupsList');el.classList.add('show');
+  if(!gs.length){el.innerHTML='<div class="empty">لا توجد</div>';return;}
+  el.innerHTML=gs.map(g=>`<div class="gi" onclick="document.getElementById('tgTarget').value='${g.id}'"><span>📌 ${esc(g.name)}</span><span>↗</span></div>`).join('');
+});
+socket.on('logout-done',(t)=>alert('✅ تم الخروج من '+t));
 
-// ═════ JOBS ═════
-socket.on('jobs-update',(jobs)=>{const list=document.getElementById('jobsList');const my=jobs.filter(j=>j.sessionId===currentSession);if(!my.length){list.innerHTML='<div class="empty">لا توجد عمليات</div>';return;}list.innerHTML=my.map(j=>{const pct=Math.round(j.sent/j.count*100);const icon=j.type.startsWith('whatsapp')?'📱':'✈️';const tc=j.type.startsWith('telegram')?'tg':'';const st={running:'جاري',done:'انتهى',stopped:'متوقف',error:'خطأ'}[j.status]||j.status;const sb=j.status==='running'?`<button class="jstop" onclick="stopJob('${j.id}')">⏹</button>`:'';return `<div class="ji ${j.status}">${sb}<div class="hdr"><span class="t ${tc}">${icon} ${j.type}</span><span class="s ${j.status}">${st}</span></div><div class="tgt">${j.target}</div><div class="stt"><span>✉️ <b>${j.sent}</b>/${j.count}</span><span>❌ <span class="f">${j.failed}</span></span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div></div>`;}).join('');});
+// JOBS
+socket.on('jobs-update',(jobs)=>{
+  const list=document.getElementById('jobsList');
+  const mine=jobs.filter(j=>j.sessionId===currentSession);
+  if(!mine.length){list.innerHTML='<div class="empty">لا توجد عمليات</div>';return;}
+  list.innerHTML=mine.map(j=>{
+    const pct=Math.round(j.sent/j.count*100);
+    const st={running:'جاري',done:'انتهى',stopped:'متوقف',error:'خطأ'}[j.status]||j.status;
+    const sb=j.status==='running'?`<button class="b red" style="width:auto;padding:3px 8px;font-size:10px;margin:0;float:left" onclick="stopJob('${j.id}')">⏹</button>`:'';
+    return `<div class="ji ${j.status}"><div class="hdr"><span class="t">${j.type}</span><span>${st} ${sb}</span></div><div class="tgt">${j.target}</div><div class="stats"><span>✉️ <b>${j.sent}</b>/${j.count}</span><span>❌ ${j.failed}</span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div></div>`;
+  }).join('');
+});
 socket.on('error',(m)=>alert('❌ '+m));
 
-function switchTab(t){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));if(t==='wa'){document.querySelectorAll('.tab')[0].classList.add('active');document.getElementById('waPanel').style.display='block';document.getElementById('tgPanel').style.display='none';}else{document.querySelectorAll('.tab')[1].classList.add('active');document.getElementById('waPanel').style.display='none';document.getElementById('tgPanel').style.display='block';}}
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  if(t==='wa'){document.querySelectorAll('.tab')[0].classList.add('active');document.getElementById('waPanel').style.display='block';document.getElementById('tgPanel').style.display='none';}
+  else{document.querySelectorAll('.tab')[1].classList.add('active');document.getElementById('waPanel').style.display='none';document.getElementById('tgPanel').style.display='block';}
+}
 function waConnect(){if(!currentSession)return alert('اكتب Session ID');const p=document.getElementById('waPhone').value.trim();if(!p)return alert('اكتب رقمك');socket.emit('wa-connect',p);}
-function waLogout(){if(confirm('تسجيل الخروج؟'))socket.emit('wa-logout');}
+function waLogout(){if(confirm('خروج؟'))socket.emit('wa-logout');}
+function waReconnect(){if(!currentSession)return alert('اكتب Session ID');socket.emit('wa-reconnect');}
 function waSend(){if(!currentSession)return alert('اكتب Session ID');const n=document.getElementById('waTarget').value.trim();const m=document.getElementById('waMsg').value;const c=parseInt(document.getElementById('waCount').value);if(!n||!m||!c)return alert('املأ البيانات');socket.emit('wa-spam',{number:n,message:m,count:c});}
 function waGroups(){socket.emit('wa-groups');}
 function tgConnect(){if(!currentSession)return alert('اكتب Session ID');const p=document.getElementById('tgPhone').value.trim();if(!p)return alert('اكتب رقمك');socket.emit('tg-connect',{phone:p});}
 function tgVerify(){const p=document.getElementById('tgPhone').value.trim();const c=document.getElementById('tgCode').value.trim();if(!c)return alert('اكتب الكود');socket.emit('tg-verify',{phone:p,code:c});}
-function tgPasswordSubmit(){const p=document.getElementById('tgPhone').value.trim();const pass=document.getElementById('tgPassword').value.trim();if(!pass)return alert('اكتب كلمة السر');socket.emit('tg-verify-pass',{phone:p,password:pass});}
-function tgLogout(){if(confirm('تسجيل الخروج؟'))socket.emit('tg-logout');}
-function tgSend(){if(!currentSession)return alert('اكتب Session ID');const t=document.getElementById('tgTarget').value.trim();const m=document.getElementById('tgMsg').value;const c=parseInt(document.getElementById('tgCount').value);if(!t||!m||!c)return alert('املأ البيانات');socket.emit('tg-spam',{target:t,message:m,count:c});}
+function tgPassSubmit(){const p=document.getElementById('tgPhone').value.trim();const pw=document.getElementById('tgPass').value.trim();if(!pw)return alert('اكتب كلمة السر');socket.emit('tg-verify-pass',{phone:p,password:pw});}
+function tgLogout(){if(confirm('خروج؟'))socket.emit('tg-logout');}
+function tgSend(){if(!currentSession)return alert('اكتب Session ID');const t=document.getElementById('tgTarget').value.trim();const m=document.getElementById('tgMsgIn').value;const c=parseInt(document.getElementById('tgCount').value);if(!t||!m||!c)return alert('املأ البيانات');socket.emit('tg-spam',{target:t,message:m,count:c});}
 function tgGroups(){socket.emit('tg-groups');}
 function stopJob(j){if(j.startsWith('wa_'))socket.emit('wa-stop',j);else socket.emit('tg-stop',j);}
-function clearJobs(){if(confirm('مسح كل العمليات؟'))socket.emit('clear-jobs');}
+function clearJobs(){if(confirm('مسح؟'))socket.emit('clear-jobs');}
+async function wipeSessions(){
+  if(!confirm('⚠️ مسح كل الجلسات؟'))return;
+  if(!confirm('تأكيد؟'))return;
+  try{const r=await fetch('/api/wipe-sessions',{method:'POST'});const j=await r.json();if(j.success){alert('✅ تم');location.reload();}else alert('❌ '+j.error);}catch(e){alert('❌ '+e.message);}
+}
 </script>
 </body>
 </html>
