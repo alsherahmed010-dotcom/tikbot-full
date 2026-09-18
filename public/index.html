@@ -431,6 +431,26 @@ function waChatSend(){
   socket.emit('wa-group-send',{groupId:currentChatGroupId,text,count:cnt});
   inp.value='';
 }
+// ⭐ رسالة جديدة جت من جروب
+socket.on('wa-new-message',(d)=>{
+  if(d.groupId!==currentChatGroupId)return;
+  const el=document.getElementById('waChatMessages');
+  if(!el)return;
+  const m=d.message;
+  if(!m)return;
+  // شيل placeholder لو موجود
+  const load=el.querySelector('.chat-loading');
+  if(load)load.remove();
+  const cls=m.fromMe?'me':'them';
+  const time=m.time?new Date(m.time*1000).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'';
+  const sender=m.fromMe?'أنت':(m.pushName||m.from||'?');
+  el.innerHTML+=`<div class="m ${cls}"><div class="sn">${escapeHtml(sender)}</div><div>${escapeHtml(m.text)}</div><div class="tm">${time}</div></div>`;
+  el.scrollTop=el.scrollHeight;
+  // حدّث العدد
+  const cnt=el.querySelectorAll('.m').length;
+  document.getElementById('waChatCount').textContent='📨 '+cnt+' رسالة';
+});
+
 socket.on('wa-group-send-ok',(d)=>{
   if(d.groupId!==currentChatGroupId)return;
   const el=document.getElementById('waChatMessages');

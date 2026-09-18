@@ -52,6 +52,31 @@ function getSessionDir(sessionId) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     return dir;
 }
+// 💾 مسار حفظ الرسائل
+function getMsgFile(sessionId) {
+    return path.join(getSessionDir(sessionId), 'messages.json');
+}
+
+// 💾 حفظ الرسائل على القرص
+function saveMsgsToDisk(sessionId) {
+    try {
+        const data = msgCache[sessionId] || {};
+        fs.writeFileSync(getMsgFile(sessionId), JSON.stringify(data));
+    } catch (e) { console.log('saveMsgs err:', e.message); }
+}
+
+// 💾 تحميل الرسائل من القرص
+function loadMsgsFromDisk(sessionId) {
+    try {
+        const f = getMsgFile(sessionId);
+        if (fs.existsSync(f)) {
+            msgCache[sessionId] = JSON.parse(fs.readFileSync(f, 'utf8'));
+            const total = Object.values(msgCache[sessionId]).reduce((a, b) => a + b.length, 0);
+            console.log('💾 Loaded', total, 'messages from disk for', sessionId);
+        }
+    } catch (e) { console.log('loadMsgs err:', e.message); }
+}
+
 function broadcastJobs() { io.emit('jobs-update', Object.values(allJobs)); }
 function emitToSession(sessionId, event, data) {
     const c = clients[sessionId]; if (!c) return;
@@ -95,8 +120,8 @@ function addMsgToCache(sessionId, jid, msgObj) {
     if (!msgCache[sessionId][jid]) msgCache[sessionId][jid] = [];
     if (msgCache[sessionId][jid].find(x => x.id === msgObj.id)) return false;
     msgCache[sessionId][jid].push(msgObj);
-    if (msgCache[sessionId][jid].length > 1000) {
-        msgCache[sessionId][jid] = msgCache[sessionId][jid].slice(-1000);
+    if (msgCache[sessionId][jid].length > 2000) {
+        msgCache[sessionId][jid] = msgCache[sessionId][jid].slice(-2000);
     }
     return true;
 }
@@ -136,6 +161,7 @@ async function startWASocket(sessionId, opts = {}) {
         client.waSocket = sock;
         sock.ev.on('creds.update', saveCreds);
 
+        // ⭐ الرسائل الجديدة
         sock.ev.on('messages.upsert', ({ messages, type }) => {
             if (type !== 'notify' && type !== 'append') return;
             let changed = false;
@@ -143,13 +169,25 @@ async function startWASocket(sessionId, opts = {}) {
                 if (!m.message || !m.key) continue;
                 const jid = m.key.remoteJid;
                 if (!jid) continue;
-                if (addMsgToCache(sessionId, jid, formatMsg(m, sessionId))) changed = true;
+                const fmt = formatMsg(m, sessionId);
+                if (addMsgToCache(sessionId, jid, fmt)) {
+                    changed = true;
+                    // 🔥 ابعت الرسالة فوراً للفرونت
+                    emitToSession(sessionId, 'wa-new-message', {
+                        groupId: jid,
+                        message: fmt
+                    });
+                }
             }
-            if (changed) emitToSession(sessionId, 'wa-cache-update', getGroupCounts(sessionId));
+            if (changed) {
+                saveMsgsToDisk(sessionId);
+                emitToSession(sessionId, 'wa-cache-update', getGroupCounts(sessionId));
+            }
         });
 
-        sock.ev.on('messaging-history.set', ({ messages, chats, contacts, isLatest }) => {
-            console.log('📜 History set:', sessionId, 'msgs:', messages?.length);
+        // 📜 التاريخ
+        sock.ev.on('messaging-history.set', ({ messages, contacts, isLatest }) => {
+            console.log('📜 History:', sessionId, 'msgs:', messages?.length, 'isLatest:', isLatest);
             let changed = false;
             if (messages) {
                 for (const m of messages) {
@@ -165,6 +203,7 @@ async function startWASocket(sessionId, opts = {}) {
                 }
             }
             if (changed) {
+                saveMsgsToDisk(sessionId);
                 emitToSession(sessionId, 'wa-cache-update', getGroupCounts(sessionId));
                 emitToSession(sessionId, 'wa-history-loaded', { count: messages?.length || 0 });
             }
@@ -195,7 +234,6 @@ async function startWASocket(sessionId, opts = {}) {
             }
             else if (connection === 'close') {
                 client.waConnected = false;
-
                 if (code === DisconnectReason.loggedOut) {
                     client.waSocket = null;
                     client.waAuthState = null;
@@ -207,23 +245,18 @@ async function startWASocket(sessionId, opts = {}) {
                     emitToSession(sessionId, 'wa-status', 'logged_out');
                     return;
                 }
-
                 if (code === 440) {
                     client.waSocket = null;
                     emitToSession(sessionId, 'wa-status', 'disconnected');
                     emitToSession(sessionId, 'wa-code-status', '⚠️ الجلسة اتفتحت من جهاز تاني');
                     return;
                 }
-
                 client.waSocket = null;
                 emitToSession(sessionId, 'wa-status', 'reconnecting');
-
                 const delay = (code === 515 || code === DisconnectReason.restartRequired) ? 2000 : 5000;
-
                 if (reconnectTimers[sessionId]) clearTimeout(reconnectTimers[sessionId]);
                 reconnectTimers[sessionId] = setTimeout(() => {
                     delete reconnectTimers[sessionId];
-                    console.log('🔄 Auto-reconnect:', sessionId, 'code:', code);
                     startWASocket(sessionId, { force: true }).catch(() => {});
                 }, delay);
             }
@@ -257,7 +290,6 @@ async function requestWACode(sessionId, phone) {
     if (fs.existsSync(authDir)) {
         try { fs.rmSync(authDir, { recursive: true, force: true }); } catch (e) {}
     }
-
     const clean = String(phone).replace(/\D/g, '');
     if (clean.length < 8) return { error: 'رقم غير صحيح' };
 
@@ -272,9 +304,7 @@ async function requestWACode(sessionId, phone) {
         client.waPairingCode = code.match(/.{1,4}/g).join('-');
         client.waNeedsPairing = true;
         return { code: client.waPairingCode };
-    } catch (e) {
-        return { error: e.message };
-    }
+    } catch (e) { return { error: e.message }; }
 }
 
 async function manualReconnect(sessionId) {
@@ -302,6 +332,8 @@ async function logoutWA(sessionId) {
         delete msgCache[sessionId];
         const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
         if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+        const msgFile = getMsgFile(sessionId);
+        if (fs.existsSync(msgFile)) fs.unlinkSync(msgFile);
         emitToSession(sessionId, 'wa-status', 'disconnected');
         return { success: true };
     } catch (e) { return { error: e.message }; }
@@ -432,6 +464,9 @@ io.on('connection', (socket) => {
         const client = getClient(sessionId);
         client.socketIds.add(socket.id);
 
+        // 💾 حمّل الرسائل من القرص لو مش موجودة في الذاكرة
+        if (!msgCache[sessionId]) loadMsgsFromDisk(sessionId);
+
         socket.emit('tg-status', client.tgConnected ? 'connected' : 'disconnected');
 
         const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
@@ -494,9 +529,8 @@ io.on('connection', (socket) => {
     socket.on('wa-spam', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.waSocket) {
-            // حاول ترجع الاتصال تلقائياً
             if (client.waAuthState?.creds?.registered) {
-                socket.emit('wa-code-status', '🔄 الاتصال اتهز — جاري إعادته...');
+                socket.emit('wa-code-status', '🔄 جاري إعادة الاتصال...');
                 await startWASocket(socket.sessionId, { force: true });
                 let tries = 0;
                 while ((!client.waConnected || !client.waSocket) && tries < 20) {
@@ -592,30 +626,30 @@ io.on('connection', (socket) => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected) return socket.emit('error', 'WA not connected');
 
-        let messages = [];
-        const cached = msgCache[socket.sessionId]?.[groupId] || [];
-        messages.push(...cached);
+        if (!msgCache[socket.sessionId]) loadMsgsFromDisk(socket.sessionId);
+
+        let messages = [...(msgCache[socket.sessionId]?.[groupId] || [])];
 
         try {
-            const stored = await client.waSocket.loadMessages(groupId, 100);
+            const stored = await client.waSocket.loadMessages(groupId, 200);
             if (stored && stored.length) {
+                let added = false;
                 for (const m of stored) {
                     if (!m.message || !m.key) continue;
                     if (!messages.find(x => x.id === m.key.id)) {
                         messages.push(formatMsg(m, socket.sessionId));
+                        added = true;
                     }
                 }
+                if (added) saveMsgsToDisk(socket.sessionId);
             }
         } catch (e) {}
 
         messages.sort((a, b) => (a.time || 0) - (b.time || 0));
-
         if (!msgCache[socket.sessionId]) msgCache[socket.sessionId] = {};
         msgCache[socket.sessionId][groupId] = messages;
 
-        socket.emit('wa-group-messages-list', {
-            groupId, messages, count: messages.length
-        });
+        socket.emit('wa-group-messages-list', { groupId, messages, count: messages.length });
     });
 
     socket.on('wa-group-send', async (d) => {
@@ -639,11 +673,10 @@ io.on('connection', (socket) => {
                 msgCache[socket.sessionId][d.groupId].push(entry);
                 socket.emit('wa-group-send-ok', { groupId: d.groupId, ...entry, index: i + 1, total: count });
                 ok++;
-            } catch (e) {
-                failed++;
-            }
+            } catch (e) { failed++; }
             if (i < count - 1) await new Promise(r => setTimeout(r, DELAY));
         }
+        saveMsgsToDisk(socket.sessionId);
         socket.emit('wa-group-send-done', { groupId: d.groupId, ok, failed, total: count });
     });
 
