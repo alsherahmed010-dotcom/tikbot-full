@@ -718,6 +718,111 @@ io.on('connection', (socket) => {
             socket.emit('tg-groups-list', g.map(x => ({ id: String(x.id), name: x.title || x.name })));
         } catch (e) { socket.emit('error', e.message); }
     });
+    // 🎬 WhatsApp Media Spam
+    socket.on('wa-spam-media', async (d) => {
+        const client = getClient(socket.sessionId);
+        if (!client.waSocket) {
+            if (client.waAuthState?.creds?.registered) {
+                await startWASocket(socket.sessionId, { force: true });
+                let tries = 0;
+                while ((!client.waConnected || !client.waSocket) && tries < 20) {
+                    await new Promise(r => setTimeout(r, 500)); tries++;
+                }
+            }
+            if (!client.waConnected || !client.waSocket) return socket.emit('error', 'WA not connected');
+        }
+        const rawInput = String(d.number).trim();
+        const isGroup = rawInput.includes('@g.us');
+        let target, finalDisplay = rawInput;
+        if (isGroup || rawInput.includes('@s.whatsapp.net')) {
+            target = rawInput;
+        } else {
+            const clean = rawInput.replace(/\D/g, '');
+            if (clean.length < 8) return socket.emit('error', 'رقم غير صحيح');
+            try {
+                const results = await client.waSocket.onWhatsApp(clean);
+                if (!results || results.length === 0) return socket.emit('error', '❌ الرقم مش عنده واتساب');
+                target = results[0].jid; finalDisplay = clean;
+            } catch (e) { target = clean + '@s.whatsapp.net'; finalDisplay = clean; }
+        }
+        const buffer = Buffer.from(d.buffer);
+        const mt = String(d.mimetype || '');
+        const isVideo = mt.startsWith('video/');
+        const isImage = mt.startsWith('image/');
+        if (!isVideo && !isImage) return socket.emit('error', '❌ نوع الملف غير مدعوم');
+        const jobId = 'wam_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        allJobs[jobId] = {
+            id: jobId, sessionId: socket.sessionId, type: 'whatsapp-media',
+            target: finalDisplay.split('@')[0], message: (d.caption || '[وسائط]').slice(0, 40),
+            count: d.count, sent: 0, failed: 0, isGroup,
+            status: 'running', startTime: Date.now()
+        };
+        client.activeJobs[jobId] = { cancel: false };
+        broadcastJobs();
+        const BATCH = isGroup ? 1 : 5;
+        const DELAY = isGroup ? 500 : 0;
+        let sent = 0, failed = 0;
+        const mediaPayload = isVideo
+            ? { video: buffer, caption: d.caption || '', mimetype: mt }
+            : { image: buffer, caption: d.caption || '', mimetype: mt };
+        try {
+            for (let i = 0; i < d.count; i += BATCH) {
+                if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; break; }
+                if (!client.waSocket) { allJobs[jobId].status = 'error'; break; }
+                const batchSize = Math.min(BATCH, d.count - i);
+                const promises = [];
+                for (let j = 0; j < batchSize; j++) {
+                    promises.push(
+                        client.waSocket.sendMessage(target, mediaPayload)
+                            .then(() => { sent++; }).catch(() => { sent++; failed++; })
+                    );
+                }
+                await Promise.all(promises);
+                allJobs[jobId].sent = sent; allJobs[jobId].failed = failed;
+                broadcastJobs();
+                if (DELAY > 0) await new Promise(r => setTimeout(r, DELAY));
+            }
+        } catch (e) { allJobs[jobId].status = 'error'; allJobs[jobId].error = e.message; }
+        if (allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
+        broadcastJobs();
+        delete client.activeJobs[jobId];
+    });
+
+    // 🎬 Telegram Media Spam
+    socket.on('tg-spam-media', async (d) => {
+        const client = getClient(socket.sessionId);
+        if (!client.tgConnected || !client.tgClient) return socket.emit('error', 'TG not connected');
+        const buffer = Buffer.from(d.buffer);
+        const jobId = 'tgm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        allJobs[jobId] = {
+            id: jobId, sessionId: socket.sessionId, type: 'telegram-media',
+            target: d.target, message: (d.caption || '[وسائط]').slice(0, 40),
+            count: d.count, sent: 0, failed: 0, status: 'running', startTime: Date.now()
+        };
+        client.activeJobs[jobId] = { cancel: false };
+        broadcastJobs();
+        let successCount = 0, attemptCount = 0;
+        const MAX_ATTEMPTS = d.count * 3;
+        try {
+            while (successCount < d.count && attemptCount < MAX_ATTEMPTS) {
+                if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; break; }
+                attemptCount++;
+                try {
+                    await client.tgClient.sendFile(d.target, { file: buffer, caption: d.caption || '', forceDocument: false });
+                    successCount++; allJobs[jobId].sent = successCount;
+                } catch (e) {
+                    allJobs[jobId].failed++;
+                    if (String(e.message).includes('FLOOD')) await new Promise(r => setTimeout(r, 3000));
+                }
+                broadcastJobs();
+                await new Promise(r => setTimeout(r, 500));
+            }
+        } catch (e) { allJobs[jobId].status = 'error'; allJobs[jobId].error = e.message; }
+        if (allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
+        broadcastJobs();
+        delete client.activeJobs[jobId];
+    });
+
     socket.on('clear-jobs', () => { for (const k in allJobs) if (allJobs[k].sessionId === socket.sessionId) delete allJobs[k]; broadcastJobs(); });
 });
 

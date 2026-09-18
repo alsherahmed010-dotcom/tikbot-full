@@ -238,7 +238,18 @@ textarea{min-height:80px;resize:vertical;font-family:inherit;line-height:1.5}
       <input type="text" id="waTarget" placeholder="📱 رقم الهدف أو اختر جروب">
       <textarea id="waMsg" placeholder="💬 اكتب رسالتك...">Hello!</textarea>
       <input type="number" id="waCount" value="10" placeholder="🔢 عدد الرسائل">
-      <button class="btn" onclick="waSend()">⚡ إرسال (رقم: طلقة | جروب: 10/ث)</button>
+      <button class="btn" onclick="waSend()">⚡ إرسال نص</button>
+
+      <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)">
+        <div class="hint" style="margin-bottom:10px">🖼️ إرسال صورة أو فيديو</div>
+        <label for="waMediaFile" style="display:block;padding:14px;background:rgba(0,0,0,0.35);border:2px dashed var(--border2);border-radius:12px;text-align:center;cursor:pointer;transition:.2s" id="waMediaLabel">
+          <span style="font-size:22px">📎</span>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px" id="waMediaName">اختر صورة أو فيديو</div>
+        </label>
+        <input type="file" id="waMediaFile" accept="image/*,video/*" style="display:none" onchange="waMediaPicked(this)">
+        <input type="text" id="waMediaCaption" placeholder="💬 تعليق (اختياري)" style="margin-top:8px">
+        <button class="btn" onclick="waSendMedia()">🖼️ إرسال الوسائط</button>
+      </div>
     </div>
 
     <div class="card">
@@ -273,7 +284,18 @@ textarea{min-height:80px;resize:vertical;font-family:inherit;line-height:1.5}
       <input type="text" id="tgTarget" placeholder="👤 @username أو ID">
       <textarea id="tgMsg" placeholder="💬 اكتب رسالتك...">Hello!</textarea>
       <input type="number" id="tgCount" value="10" placeholder="🔢 عدد الرسائل">
-      <button class="btn blue" onclick="tgSend()">⚡ إرسال (10/ثانية)</button>
+      <button class="btn blue" onclick="tgSend()">⚡ إرسال نص</button>
+
+      <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border)">
+        <div class="hint" style="margin-bottom:10px">🖼️ إرسال صورة أو فيديو</div>
+        <label for="tgMediaFile" style="display:block;padding:14px;background:rgba(0,0,0,0.35);border:2px dashed rgba(0,180,255,0.4);border-radius:12px;text-align:center;cursor:pointer" id="tgMediaLabel">
+          <span style="font-size:22px">📎</span>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px" id="tgMediaName">اختر صورة أو فيديو</div>
+        </label>
+        <input type="file" id="tgMediaFile" accept="image/*,video/*" style="display:none" onchange="tgMediaPicked(this)">
+        <input type="text" id="tgMediaCaption" placeholder="💬 تعليق (اختياري)" style="margin-top:8px">
+        <button class="btn blue" onclick="tgSendMedia()">🖼️ إرسال الوسائط</button>
+      </div>
     </div>
 
     <div class="card">
