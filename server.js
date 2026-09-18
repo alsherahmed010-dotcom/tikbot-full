@@ -17,7 +17,7 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } = require('@whiskeysockets/baileys');
 const { TelegramClient } = require('telegram');
 const { StringSession } = require('telegram/sessions');
 const { Api } = require('telegram');
@@ -31,6 +31,8 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true }
 
 const clients = {};
 const allJobs = {};
+// 🆕 cache للرسائل: { sessionId: { groupId: [messages] } }
+const msgCache = {};
 
 function getClient(sessionId) {
     if (!clients[sessionId]) {
@@ -55,11 +57,45 @@ function emitToSession(sessionId, event, data) {
     for (const sid of c.socketIds) io.to(sid).emit(event, data);
 }
 
-// ═══════ WHATSAPP — نقطة واحدة لبدء Socket ═══════
+// 🆕 استخراج نص الرسالة
+function extractText(m) {
+    if (!m?.message) return '[media]';
+    const msg = m.message;
+    return msg.conversation
+        || msg.extendedTextMessage?.text
+        || msg.imageMessage?.caption
+        || msg.videoMessage?.caption
+        || (msg.imageMessage ? '[صورة]' : null)
+        || (msg.videoMessage ? '[فيديو]' : null)
+        || (msg.audioMessage ? '[صوت]' : null)
+        || (msg.documentMessage ? '[ملف]' : null)
+        || (msg.stickerMessage ? '[ملصق]' : null)
+        || '[رسالة]';
+}
+
+// 🆕 تنسيق رسالة
+function formatMsg(m, sessionId) {
+    const fromJid = m.key?.participant || m.key?.remoteJid || '';
+    let pushName = m.pushName || '';
+    // حاول تجيب الاسم من المخزن لو متاح
+    if (!pushName && m.key?.participant) {
+        const c = clients[sessionId];
+        if (c?.contactNames?.[m.key.participant]) pushName = c.contactNames[m.key.participant];
+    }
+    return {
+        id: m.key?.id || '',
+        from: fromJid.split('@')[0],
+        fromMe: !!m.key?.fromMe,
+        text: extractText(m),
+        time: Number(m.messageTimestamp) || 0,
+        pushName: pushName || ''
+    };
+}
+
+// ═══════ WHATSAPP ═══════
 async function startWASocket(sessionId) {
     const client = getClient(sessionId);
     if (client.waStarting) {
-        // لو بنبدأ socket بالفعل، استنى
         while (client.waStarting) await new Promise(r => setTimeout(r, 200));
         return client.waSocket;
     }
@@ -75,9 +111,9 @@ async function startWASocket(sessionId) {
             version, auth: state, printQRInTerminal: false,
             logger: pino({ level: 'silent' }),
             browser: ["Ubuntu", "Chrome", "20.0.0"],
-            syncFullHistory: false,
-            connectTimeoutMs: 300000,        // 5 دقايق
-            defaultQueryTimeoutMs: 300000,   // 5 دقايق
+            syncFullHistory: true,
+            connectTimeoutMs: 300000,
+            defaultQueryTimeoutMs: 300000,
             keepAliveIntervalMs: 25000,
             retryRequestDelayMs: 2000,
             generateHighQualityLinkPreview: false,
@@ -86,6 +122,48 @@ async function startWASocket(sessionId) {
 
         client.waSocket = sock;
         sock.ev.on('creds.update', saveCreds);
+
+        // 🆕 cache للرسائل الواردة
+        sock.ev.on('messages.upsert', ({ messages, type }) => {
+            if (type !== 'notify' && type !== 'append') return;
+            if (!msgCache[sessionId]) msgCache[sessionId] = {};
+            for (const m of messages) {
+                if (!m.message || !m.key) continue;
+                const remoteJid = m.key.remoteJid;
+                if (!remoteJid) continue;
+                if (!msgCache[sessionId][remoteJid]) msgCache[sessionId][remoteJid] = [];
+                // تجنب التكرار
+                if (!msgCache[sessionId][remoteJid].find(x => x.id === m.key.id)) {
+                    msgCache[sessionId][remoteJid].push(formatMsg(m, sessionId));
+                    // احتفظ بآخر 500 رسالة فقط
+                    if (msgCache[sessionId][remoteJid].length > 500) {
+                        msgCache[sessionId][remoteJid] = msgCache[sessionId][remoteJid].slice(-500);
+                    }
+                }
+            }
+            // ابعت تحديث للفرونت
+            emitToSession(sessionId, 'wa-cache-update', {
+                groups: Object.keys(msgCache[sessionId]).map(gid => ({
+                    id: gid,
+                    count: msgCache[sessionId][gid].length
+                }))
+            });
+        });
+
+        // 🆕 اسماء جهات الاتصال
+        sock.ev.on('contacts.update', (contacts) => {
+            if (!client.contactNames) client.contactNames = {};
+            for (const c of contacts) {
+                if (c.id && c.notify) client.contactNames[c.id] = c.notify;
+                else if (c.id && c.name) client.contactNames[c.id] = c.name;
+            }
+        });
+        sock.ev.on('contacts.set', ({ contacts }) => {
+            if (!client.contactNames) client.contactNames = {};
+            for (const c of contacts) {
+                if (c.id && (c.notify || c.name)) client.contactNames[c.id] = c.notify || c.name;
+            }
+        });
 
         sock.ev.on('connection.update', (u) => {
             const { connection, lastDisconnect } = u;
@@ -101,9 +179,7 @@ async function startWASocket(sessionId) {
             }
             else if (connection === 'close') {
                 client.waConnected = false;
-
                 if (code === DisconnectReason.loggedOut) {
-                    // 🚪 logged out
                     client.waSocket = null;
                     client.waAuthState = null;
                     client.waNeedsPairing = false;
@@ -114,15 +190,11 @@ async function startWASocket(sessionId) {
                     emitToSession(sessionId, 'wa-status', 'logged_out');
                 }
                 else if (code === 515 || code === DisconnectReason.restartRequired) {
-                    // 🔄 طبيعي جداً بعد الربط — Baileys بيطلب restart عشان يكمل
-                    console.log('🔄 Restart required — recreating socket (2s)');
+                    console.log('🔄 Restart required (515) — recreate after 2s');
                     client.waSocket = null;
-                    setTimeout(() => {
-                        startWASocket(sessionId).catch(() => {});
-                    }, 2000);
+                    setTimeout(() => { startWASocket(sessionId).catch(() => {}); }, 2000);
                 }
                 else {
-                    // 🛑 مفيش إعادة تلقائية
                     client.waSocket = null;
                     emitToSession(sessionId, 'wa-status', 'disconnected');
                 }
@@ -138,15 +210,10 @@ async function startWASocket(sessionId) {
     }
 }
 
-// 🔑 طلب كود الربط
 async function requestWACode(sessionId, phone) {
     const client = getClient(sessionId);
+    if (client.waAuthState?.creds?.registered) return { error: 'الرقم مسجل — سجل خروج أول' };
 
-    if (client.waAuthState?.creds?.registered) {
-        return { error: 'الرقم مسجل — سجل خروج أول' };
-    }
-
-    // امسح الجلسة القديمة + اقفل socket قديم
     const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
     if (client.waSocket) {
         try { client.waSocket.ev.removeAllListeners(); } catch (e) {}
@@ -161,17 +228,10 @@ async function requestWACode(sessionId, phone) {
     const clean = String(phone).replace(/\D/g, '');
     if (clean.length < 8) return { error: 'رقم غير صحيح' };
 
-    const sock = await startWASocket(sessionId);
-
-    // استنى لحد ما الـ socket يبقى جاهز
+    await startWASocket(sessionId);
     let tries = 0;
-    while (!client.waSocket && tries < 20) {
-        await new Promise(r => setTimeout(r, 500));
-        tries++;
-    }
+    while (!client.waSocket && tries < 20) { await new Promise(r => setTimeout(r, 500)); tries++; }
     if (!client.waSocket) return { error: 'Socket init timeout' };
-
-    // انتظر إضافي عشان الـ noise/signal يتبني
     await new Promise(r => setTimeout(r, 3000));
 
     try {
@@ -213,6 +273,7 @@ async function logoutWA(sessionId) {
         client.waAuthState = null;
         client.waNeedsPairing = false;
         client.waPairingCode = null;
+        delete msgCache[sessionId];
         const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
         if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
         emitToSession(sessionId, 'wa-status', 'disconnected');
@@ -327,6 +388,7 @@ app.post('/api/wipe-sessions', async (req, res) => {
             fs.mkdirSync(SESSIONS_DIR, { recursive: true });
         }
         for (const k in allJobs) delete allJobs[k];
+        for (const k in msgCache) delete msgCache[k];
         broadcastJobs();
         console.log('🗑️ All sessions wiped');
         res.json({ success: true });
@@ -350,16 +412,11 @@ io.on('connection', (socket) => {
 
         socket.emit('tg-status', client.tgConnected ? 'connected' : 'disconnected');
 
-        // 🟢 فحص الجلسة الموجودة على القرص
         const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
         const hasCreds = fs.existsSync(path.join(authDir, 'creds.json'));
-        if (client.waConnected) {
-            socket.emit('wa-status', 'connected');
-        } else if (hasCreds) {
-            socket.emit('wa-status', 'session_exists');
-        } else {
-            socket.emit('wa-status', 'disconnected');
-        }
+        if (client.waConnected) socket.emit('wa-status', 'connected');
+        else if (hasCreds) socket.emit('wa-status', 'session_exists');
+        else socket.emit('wa-status', 'disconnected');
 
         if (client.waNeedsPairing && client.waPairingCode && !client.waConnected) {
             socket.emit('wa-code', client.waPairingCode);
@@ -389,7 +446,7 @@ io.on('connection', (socket) => {
         const r = await requestWACode(socket.sessionId, phone);
         if (r.code) {
             socket.emit('wa-code', r.code);
-            socket.emit('wa-code-status', '✅ أدخل الكود في واتساب — الأداة هتستنى لحد الربط');
+            socket.emit('wa-code-status', '✅ أدخل الكود في واتساب — الأداة هتستنى');
         } else socket.emit('wa-code-status', '❌ ' + r.error);
     });
 
@@ -398,7 +455,7 @@ io.on('connection', (socket) => {
         socket.emit('wa-code-status', '🔄 جاري إعادة الاتصال...');
         const r = await manualReconnect(socket.sessionId);
         if (r.ok) socket.emit('wa-code-status', '✅ بدأ الاتصال — استنى');
-        else if (r.needPairing) socket.emit('wa-code-status', '❌ الرقم مش مربوط — اطلب كود أول');
+        else if (r.needPairing) socket.emit('wa-code-status', '❌ الرقم مش مربوط');
         else socket.emit('wa-code-status', '❌ فشل');
     });
 
@@ -409,64 +466,150 @@ io.on('connection', (socket) => {
         socket.emit('logout-done', 'whatsapp');
     });
 
+    // 🆕 إرسال — مع onWhatsApp check للأرقام
     socket.on('wa-spam', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected || !client.waSocket) return socket.emit('error', 'WA not connected');
+
+        const rawInput = String(d.number).trim();
+        const isGroup = rawInput.includes('@g.us');
+        let target;
+        let finalDisplay = rawInput;
+
+        if (isGroup) {
+            target = rawInput;
+        } else if (rawInput.includes('@s.whatsapp.net')) {
+            target = rawInput;
+        } else {
+            // 🆕 تأكد إن الرقم عنده واتساب
+            const clean = rawInput.replace(/\D/g, '');
+            if (clean.length < 8) return socket.emit('error', 'رقم غير صحيح');
+            try {
+                socket.emit('wa-code-status', '🔍 جاري التحقق من الرقم...');
+                const results = await client.waSocket.onWhatsApp(clean);
+                if (!results || results.length === 0) {
+                    return socket.emit('error', '❌ الرقم ' + clean + ' مش عنده واتساب');
+                }
+                target = results[0].jid;
+                finalDisplay = clean;
+                socket.emit('wa-code-status', '✅ الرقم موجود، جاري الإرسال...');
+            } catch (e) {
+                // fallback
+                target = clean + '@s.whatsapp.net';
+                finalDisplay = clean;
+            }
+        }
+
         const jobId = 'wa_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-        const isGroup = String(d.number).includes('@g.us');
-        const target = String(d.number).includes('@') ? d.number : String(d.number).replace(/\D/g, '') + '@s.whatsapp.net';
-        allJobs[jobId] = { id: jobId, sessionId: socket.sessionId, type: 'whatsapp', target: target.split('@')[0], message: d.message, count: d.count, sent: 0, failed: 0, isGroup, status: 'running', startTime: Date.now() };
+        allJobs[jobId] = {
+            id: jobId, sessionId: socket.sessionId, type: 'whatsapp',
+            target: finalDisplay.split('@')[0], message: d.message,
+            count: d.count, sent: 0, failed: 0, isGroup,
+            status: 'running', startTime: Date.now()
+        };
         client.activeJobs[jobId] = { cancel: false };
         broadcastJobs();
+
         const DELAY_MS = isGroup ? 100 : 0;
         let successCount = 0, attemptCount = 0;
         const MAX_ATTEMPTS = d.count * 3;
+
         try {
             while (successCount < d.count && attemptCount < MAX_ATTEMPTS) {
                 if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; broadcastJobs(); break; }
                 attemptCount++;
-                try { await client.waSocket.sendMessage(target, { text: d.message }); successCount++; allJobs[jobId].sent = successCount; }
-                catch (e) { allJobs[jobId].failed++; }
+                try {
+                    await client.waSocket.sendMessage(target, { text: d.message });
+                    successCount++;
+                    allJobs[jobId].sent = successCount;
+                } catch (e) {
+                    allJobs[jobId].failed++;
+                    console.log('Send err:', e.message);
+                }
                 broadcastJobs();
                 if (DELAY_MS > 0) await new Promise(r => setTimeout(r, DELAY_MS));
             }
-        } catch (e) { allJobs[jobId].status = 'error'; allJobs[jobId].error = e.message; }
+        } catch (e) {
+            allJobs[jobId].status = 'error';
+            allJobs[jobId].error = e.message;
+        }
         if (allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
         broadcastJobs();
         delete client.activeJobs[jobId];
     });
+
     socket.on('wa-stop', (jobId) => { const c = getClient(socket.sessionId); if (c.activeJobs[jobId]) c.activeJobs[jobId].cancel = true; });
+
     socket.on('wa-groups', async () => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected) return socket.emit('error', 'WA not connected');
         try {
             const g = Object.values(await client.waSocket.groupFetchAllParticipating());
-            socket.emit('wa-groups-list', g.map(x => ({ id: x.id, name: x.subject })));
+            const cache = msgCache[socket.sessionId] || {};
+            socket.emit('wa-groups-list', g.map(x => ({
+                id: x.id,
+                name: x.subject,
+                count: (cache[x.id] || []).length
+            })));
         } catch (e) { socket.emit('error', e.message); }
     });
+
+    // 🆕 جلب رسائل الجروب — من cache + loadMessages
     socket.on('wa-group-messages', async (groupId) => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected) return socket.emit('error', 'WA not connected');
+
+        let messages = [];
+
+        // 1) من الـ cache
+        const cache = msgCache[socket.sessionId]?.[groupId] || [];
+        messages.push(...cache);
+
+        // 2) من القرص (loadMessages)
         try {
-            let messages = [];
-            try { messages = await client.waSocket.loadMessages(groupId, 50); } catch (e) {}
-            const formatted = (messages || []).map(m => ({
-                id: m.key?.id || '',
-                from: m.key?.participant ? m.key.participant.split('@')[0] : (m.key?.remoteJid || '').split('@')[0],
-                fromMe: !!m.key?.fromMe,
-                text: m.message?.conversation || m.message?.extendedTextMessage?.text || m.message?.imageMessage?.caption || '[media]',
-                time: m.messageTimestamp || 0,
-                pushName: m.pushName || ''
-            })).reverse();
-            socket.emit('wa-group-messages-list', { groupId, messages: formatted });
-        } catch (e) { socket.emit('wa-group-messages-list', { groupId, messages: [], error: e.message }); }
+            const stored = await client.waSocket.loadMessages(groupId, 100);
+            if (stored && stored.length) {
+                for (const m of stored) {
+                    if (!m.message || !m.key) continue;
+                    if (!messages.find(x => x.id === m.key.id)) {
+                        messages.push(formatMsg(m, socket.sessionId));
+                    }
+                }
+            }
+        } catch (e) { console.log('loadMessages err:', e.message); }
+
+        // رتب زمنياً
+        messages.sort((a, b) => (a.time || 0) - (b.time || 0));
+
+        // احتفظ بالنتيجة في cache
+        if (!msgCache[socket.sessionId]) msgCache[socket.sessionId] = {};
+        msgCache[socket.sessionId][groupId] = messages;
+
+        socket.emit('wa-group-messages-list', {
+            groupId,
+            messages,
+            count: messages.length
+        });
     });
+
     socket.on('wa-group-send', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected || !client.waSocket) return socket.emit('error', 'WA not connected');
         try {
             await client.waSocket.sendMessage(d.groupId, { text: d.text });
-            socket.emit('wa-group-send-ok', { groupId: d.groupId, text: d.text, time: Math.floor(Date.now() / 1000) });
+            // أضف للـ cache
+            const entry = {
+                id: 'local_' + Date.now(),
+                from: 'me',
+                fromMe: true,
+                text: d.text,
+                time: Math.floor(Date.now() / 1000),
+                pushName: 'أنت'
+            };
+            if (!msgCache[socket.sessionId]) msgCache[socket.sessionId] = {};
+            if (!msgCache[socket.sessionId][d.groupId]) msgCache[socket.sessionId][d.groupId] = [];
+            msgCache[socket.sessionId][d.groupId].push(entry);
+            socket.emit('wa-group-send-ok', { groupId: d.groupId, ...entry });
         } catch (e) { socket.emit('error', e.message); }
     });
 
