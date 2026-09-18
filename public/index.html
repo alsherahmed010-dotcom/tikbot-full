@@ -269,6 +269,7 @@ socket.on('wa-status',(st)=>{
     d.classList.remove('on','pending');
     if(st==='connected'){d.classList.add('on');t.textContent='✅ متصل';setWAConnectedUI(true);}
     else if(st==='connecting'){d.classList.add('pending');t.textContent='🔄 جاري الاتصال...';}
+    else if(st==='session_exists'){t.textContent='🔑 جلسة موجودة — اضغط إعادة الاتصال';setWAConnectedUI(true);}
     else if(st==='logged_out'){t.textContent='🚪 تم تسجيل الخروج';setWAConnectedUI(false);}
     else t.textContent='❌ غير متصل';
 });
