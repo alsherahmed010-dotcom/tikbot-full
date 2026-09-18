@@ -101,7 +101,6 @@ function addMsgToCache(sessionId, jid, msgObj) {
     return true;
 }
 
-// ═══════ WHATSAPP ═══════
 async function startWASocket(sessionId, opts = {}) {
     const client = getClient(sessionId);
     if (client.waStarting && !opts.force) {
@@ -137,7 +136,6 @@ async function startWASocket(sessionId, opts = {}) {
         client.waSocket = sock;
         sock.ev.on('creds.update', saveCreds);
 
-        // 🆕 التقاط الرسائل الحية
         sock.ev.on('messages.upsert', ({ messages, type }) => {
             if (type !== 'notify' && type !== 'append') return;
             let changed = false;
@@ -150,9 +148,8 @@ async function startWASocket(sessionId, opts = {}) {
             if (changed) emitToSession(sessionId, 'wa-cache-update', getGroupCounts(sessionId));
         });
 
-        // 🆕 التقاط التاريخ (الرسائل القديمة)
         sock.ev.on('messaging-history.set', ({ messages, chats, contacts, isLatest }) => {
-            console.log('📜 History set:', sessionId, 'msgs:', messages?.length, 'isLatest:', isLatest);
+            console.log('📜 History set:', sessionId, 'msgs:', messages?.length);
             let changed = false;
             if (messages) {
                 for (const m of messages) {
@@ -199,7 +196,6 @@ async function startWASocket(sessionId, opts = {}) {
             else if (connection === 'close') {
                 client.waConnected = false;
 
-                // 🔴 401 loggedOut → امسح الجلسة
                 if (code === DisconnectReason.loggedOut) {
                     client.waSocket = null;
                     client.waAuthState = null;
@@ -212,7 +208,6 @@ async function startWASocket(sessionId, opts = {}) {
                     return;
                 }
 
-                // 🔴 440 connectionReplaced → مفيش reconnect
                 if (code === 440) {
                     client.waSocket = null;
                     emitToSession(sessionId, 'wa-status', 'disconnected');
@@ -220,11 +215,9 @@ async function startWASocket(sessionId, opts = {}) {
                     return;
                 }
 
-                // 🟢 كل الأكواد التانية → auto-reconnect
                 client.waSocket = null;
                 emitToSession(sessionId, 'wa-status', 'reconnecting');
 
-                // 515 أسرع (بعد pairing مباشرة)
                 const delay = (code === 515 || code === DisconnectReason.restartRequired) ? 2000 : 5000;
 
                 if (reconnectTimers[sessionId]) clearTimeout(reconnectTimers[sessionId]);
@@ -275,14 +268,11 @@ async function requestWACode(sessionId, phone) {
     await new Promise(r => setTimeout(r, 3000));
 
     try {
-        console.log('🔑 Requesting pairing code for', clean);
         const code = await client.waSocket.requestPairingCode(clean);
         client.waPairingCode = code.match(/.{1,4}/g).join('-');
         client.waNeedsPairing = true;
-        console.log('✅ Code:', client.waPairingCode);
         return { code: client.waPairingCode };
     } catch (e) {
-        console.log('❌ pairing error:', e.message);
         return { error: e.message };
     }
 }
@@ -317,7 +307,6 @@ async function logoutWA(sessionId) {
     } catch (e) { return { error: e.message }; }
 }
 
-// ═══════ TELEGRAM ═══════
 async function ensureTGClient(sessionId) {
     const client = getClient(sessionId);
     if (client.tgClient && client.tgClient.connected) return client.tgClient;
@@ -407,7 +396,6 @@ async function logoutTG(sessionId) {
     } catch (e) { return { error: e.message }; }
 }
 
-// ═══════ APIs ═══════
 app.post('/api/wipe-sessions', async (req, res) => {
     try {
         for (const sid in clients) {
@@ -427,14 +415,11 @@ app.post('/api/wipe-sessions', async (req, res) => {
         for (const k in allJobs) delete allJobs[k];
         for (const k in msgCache) delete msgCache[k];
         broadcastJobs();
-        console.log('🗑️ All sessions wiped');
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ═══════ SOCKET.IO ═══════
 io.on('connection', (socket) => {
-    console.log('👤 Client:', socket.id);
     socket.emit('jobs-update', Object.values(allJobs));
 
     socket.on('register-session', async (sessionId) => {
@@ -451,7 +436,7 @@ io.on('connection', (socket) => {
 
         const authDir = path.join(getSessionDir(sessionId), 'wa_auth');
         const hasCreds = fs.existsSync(path.join(authDir, 'creds.json'));
-        if (client.waConnected) socket.emit('wa-status', 'connected');
+        if (client.waConnected && client.waSocket) socket.emit('wa-status', 'connected');
         else if (client.waSocket) socket.emit('wa-status', 'reconnecting');
         else if (hasCreds) socket.emit('wa-status', 'session_exists');
         else socket.emit('wa-status', 'disconnected');
@@ -506,10 +491,23 @@ io.on('connection', (socket) => {
         socket.emit('logout-done', 'whatsapp');
     });
 
-    // 🆕 إرسال سريع للأرقام (متوازي) + JID check
     socket.on('wa-spam', async (d) => {
         const client = getClient(socket.sessionId);
-        if (!client.waConnected || !client.waSocket) return socket.emit('error', 'WA not connected');
+        if (!client.waSocket) {
+            // حاول ترجع الاتصال تلقائياً
+            if (client.waAuthState?.creds?.registered) {
+                socket.emit('wa-code-status', '🔄 الاتصال اتهز — جاري إعادته...');
+                await startWASocket(socket.sessionId, { force: true });
+                let tries = 0;
+                while ((!client.waConnected || !client.waSocket) && tries < 20) {
+                    await new Promise(r => setTimeout(r, 500));
+                    tries++;
+                }
+            }
+            if (!client.waConnected || !client.waSocket) {
+                return socket.emit('error', 'WA not connected — اضغط إعادة الاتصال');
+            }
+        }
 
         const rawInput = String(d.number).trim();
         const isGroup = rawInput.includes('@g.us');
@@ -521,14 +519,12 @@ io.on('connection', (socket) => {
             const clean = rawInput.replace(/\D/g, '');
             if (clean.length < 8) return socket.emit('error', 'رقم غير صحيح');
             try {
-                socket.emit('wa-code-status', '🔍 جاري التحقق من الرقم...');
                 const results = await client.waSocket.onWhatsApp(clean);
                 if (!results || results.length === 0) {
                     return socket.emit('error', '❌ الرقم مش عنده واتساب');
                 }
                 target = results[0].jid;
                 finalDisplay = clean;
-                socket.emit('wa-code-status', '✅ الرقم موجود');
             } catch (e) {
                 target = clean + '@s.whatsapp.net';
                 finalDisplay = clean;
@@ -545,7 +541,6 @@ io.on('connection', (socket) => {
         client.activeJobs[jobId] = { cancel: false };
         broadcastJobs();
 
-        // 🚀 للأرقام: متوازي (10 مرة واحدة) | للجروبات: 10/ث
         const BATCH = isGroup ? 1 : 10;
         const DELAY = isGroup ? 100 : 0;
         let sent = 0, failed = 0;
@@ -553,6 +548,7 @@ io.on('connection', (socket) => {
         try {
             for (let i = 0; i < d.count; i += BATCH) {
                 if (client.activeJobs[jobId]?.cancel) { allJobs[jobId].status = 'stopped'; break; }
+                if (!client.waSocket) { allJobs[jobId].status = 'error'; allJobs[jobId].error = 'socket lost'; break; }
                 const batchSize = Math.min(BATCH, d.count - i);
                 const promises = [];
                 for (let j = 0; j < batchSize; j++) {
@@ -592,7 +588,6 @@ io.on('connection', (socket) => {
         } catch (e) { socket.emit('error', e.message); }
     });
 
-    // 🆕 جلب رسائل الجروب (cache + loadMessages)
     socket.on('wa-group-messages', async (groupId) => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected) return socket.emit('error', 'WA not connected');
@@ -611,7 +606,7 @@ io.on('connection', (socket) => {
                     }
                 }
             }
-        } catch (e) { console.log('loadMessages err:', e.message); }
+        } catch (e) {}
 
         messages.sort((a, b) => (a.time || 0) - (b.time || 0));
 
@@ -623,13 +618,11 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 🆕 إرسال من إطار الجروب (رسالة واحدة أو متعددة)
     socket.on('wa-group-send', async (d) => {
         const client = getClient(socket.sessionId);
         if (!client.waConnected || !client.waSocket) return socket.emit('error', 'WA not connected');
 
         const count = Math.max(1, parseInt(d.count) || 1);
-        const BATCH = 1;
         const DELAY = 100;
         let ok = 0, failed = 0;
 
@@ -648,7 +641,6 @@ io.on('connection', (socket) => {
                 ok++;
             } catch (e) {
                 failed++;
-                socket.emit('error', 'فشل رسالة ' + (i + 1) + ': ' + e.message);
             }
             if (i < count - 1) await new Promise(r => setTimeout(r, DELAY));
         }
