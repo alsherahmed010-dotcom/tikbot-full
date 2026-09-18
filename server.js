@@ -27,9 +27,9 @@ let waSocket = null, waConnected = false, waState = null;
 let tgClient = null, tgConnected = false;
 let pendingTG = {};
 
-// ═══════ Jobs (for tracking) ═══════
-let jobs = {}; // { jobId: { type, target, message, count, sent, failed, status, startTime } }
-let activeJobs = {}; // { jobId: { cancel: false } }
+// Jobs tracking
+let jobs = {};
+let activeJobs = {};
 
 function broadcastJobs() {
     io.emit('jobs-update', Object.values(jobs));
@@ -174,13 +174,13 @@ io.on('connection', (socket) => {
         
         jobs[jobId] = {
             id: jobId, type: 'whatsapp', target: target.split('@')[0],
-            message: d.message, count: d.count, sent: 0, failed: 0,
+            count: d.count, sent: 0, failed: 0,
             status: 'running', startTime: Date.now()
         };
         activeJobs[jobId] = { cancel: false };
         broadcastJobs();
 
-        const BATCH = 50; // أسرع
+        const BATCH = 50;
         for (let i = 0; i < d.count; i += BATCH) {
             if (activeJobs[jobId].cancel) {
                 jobs[jobId].status = 'stopped';
@@ -204,7 +204,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('wa-stop', (jobId) => {
-        if (activeJobs[jobId]) activeJobs[jobId].cancel = true;
+        if (jobId && activeJobs[jobId]) activeJobs[jobId].cancel = true;
+        else {
+            // إلغاء آخر عملية
+            const ids = Object.keys(activeJobs);
+            if (ids.length > 0) activeJobs[ids[ids.length - 1]].cancel = true;
+        }
     });
 
     socket.on('wa-groups', async () => {
@@ -212,6 +217,16 @@ io.on('connection', (socket) => {
         try {
             const g = Object.values(await waSocket.groupFetchAllParticipating());
             socket.emit('wa-groups-list', g.map(x => ({ id: x.id, name: x.subject })));
+        } catch(e) { socket.emit('error', e.message); }
+    });
+
+    socket.on('wa-reset', () => {
+        try {
+            fs.rmSync('wa_auth', { recursive: true, force: true });
+            waConnected = false;
+            if (waSocket) waSocket.end();
+            setTimeout(() => initWA(), 2000);
+            socket.emit('wa-status', 'disconnected');
         } catch(e) { socket.emit('error', e.message); }
     });
 
@@ -238,13 +253,12 @@ io.on('connection', (socket) => {
         
         jobs[jobId] = {
             id: jobId, type: 'telegram', target: d.target,
-            message: d.message, count: d.count, sent: 0, failed: 0,
+            count: d.count, sent: 0, failed: 0,
             status: 'running', startTime: Date.now()
         };
         activeJobs[jobId] = { cancel: false };
         broadcastJobs();
 
-        // أسرع: بدون timeout - Telegram API بتعمل Rate Limit تلقائي
         const BATCH = 20;
         for (let i = 0; i < d.count; i += BATCH) {
             if (activeJobs[jobId].cancel) {
@@ -258,7 +272,7 @@ io.on('connection', (socket) => {
                     tgClient.sendMessage(d.target, { message: d.message })
                         .then(() => { jobs[jobId].sent++; })
                         .catch((e) => { 
-                            jobs[jobId].failed++; 
+                            jobs[jobId].failed++;
                             if (e.message && e.message.includes('FLOOD')) {
                                 return new Promise(r => setTimeout(r, 3000));
                             }
@@ -274,7 +288,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('tg-stop', (jobId) => {
-        if (activeJobs[jobId]) activeJobs[jobId].cancel = true;
+        if (jobId && activeJobs[jobId]) activeJobs[jobId].cancel = true;
+        else {
+            const ids = Object.keys(activeJobs);
+            if (ids.length > 0) activeJobs[ids[ids.length - 1]].cancel = true;
+        }
     });
 
     socket.on('tg-groups', async () => {
@@ -283,6 +301,15 @@ io.on('connection', (socket) => {
             const d = await tgClient.getDialogs({});
             const g = d.filter(x => x.isGroup || x.isChannel);
             socket.emit('tg-groups-list', g.map(x => ({ id: String(x.id), name: x.name })));
+        } catch(e) { socket.emit('error', e.message); }
+    });
+
+    socket.on('tg-reset', () => {
+        try {
+            fs.rmSync('tg_session.txt', { force: true });
+            tgConnected = false;
+            if (tgClient) tgClient.disconnect();
+            socket.emit('tg-status', 'disconnected');
         } catch(e) { socket.emit('error', e.message); }
     });
 
