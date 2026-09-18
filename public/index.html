@@ -3,84 +3,158 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>⚡ SPAM TOOL</title>
+<title>⚡ PURPLE HACK v3.0</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Cairo',Tahoma,sans-serif}
-body{background:#0a0a0a;color:#fff;min-height:100vh;padding:15px;direction:rtl}
-.container{max-width:620px;margin:0 auto}
-h1{color:#0f0;text-align:center;margin-bottom:5px;text-shadow:0 0 20px #0f0;font-size:26px}
-.sub{text-align:center;color:#888;font-size:12px;margin-bottom:20px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Courier New',monospace}
+body{background:#000;color:#b847ff;min-height:100vh;padding:15px;direction:rtl;overflow-x:hidden}
+body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;background:
+    radial-gradient(circle at 20% 20%, rgba(184,71,255,.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(255,71,184,.08) 0%, transparent 50%),
+    repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(184,71,255,.03) 2px,rgba(184,71,255,.03) 4px);
+    pointer-events:none;z-index:0;animation:bgShift 10s ease-in-out infinite}
+@keyframes bgShift{0%,100%{opacity:.8}50%{opacity:1}}
+.scanline{position:fixed;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,#b847ff,transparent);animation:scanline 3s linear infinite;z-index:100;pointer-events:none;box-shadow:0 0 20px #b847ff}
+@keyframes scanline{0%{top:0}100%{top:100vh}}
+.container{max-width:640px;margin:0 auto;position:relative;z-index:1}
+
+.header{text-align:center;padding:20px 0;margin-bottom:20px}
+.header h1{color:#b847ff;font-size:28px;letter-spacing:4px;text-shadow:0 0 20px #b847ff,0 0 40px #b847ff;font-weight:bold;animation:glow 3s infinite}
+@keyframes glow{0%,100%{text-shadow:0 0 20px #b847ff,0 0 40px #b847ff}50%{text-shadow:0 0 30px #b847ff,0 0 60px #b847ff,0 0 80px #ff47b8}}
+.header .sub{color:#8b5fbf;font-size:11px;margin-top:8px;letter-spacing:2px}
+.header .channel{color:#ff47b8;font-size:12px;margin-top:5px;font-weight:bold}
+.header .dot-live{display:inline-block;width:8px;height:8px;background:#b847ff;border-radius:50%;box-shadow:0 0 10px #b847ff;animation:pulse 1.5s infinite;margin-left:6px;vertical-align:middle}
+@keyframes pulse{50%{opacity:.3;transform:scale(.8)}}
+
 .tabs{display:flex;gap:8px;margin-bottom:15px}
-.tab{flex:1;padding:14px;background:#111;border:2px solid #333;border-radius:12px;cursor:pointer;text-align:center;font-weight:bold;color:#fff;font-size:15px;transition:all .3s}
-.tab.active{background:#0f0;color:#000;border-color:#0f0;box-shadow:0 0 20px rgba(0,255,0,.3)}
-.tab.tg.active{background:#08c;color:#fff;border-color:#08c;box-shadow:0 0 20px rgba(0,136,204,.3)}
-.card{background:#111;border:1px solid #333;border-radius:12px;padding:20px;margin-bottom:15px}
-.card h3{margin-bottom:14px;font-size:16px}
-.status{display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:14px;padding:10px;background:#0a0a0a;border-radius:8px}
-.dot{width:12px;height:12px;border-radius:50%;background:#f00;flex-shrink:0}
-.dot.on{background:#0f0;animation:pulse 2s infinite;box-shadow:0 0 10px #0f0}
-@keyframes pulse{50%{opacity:.4}}
-input,textarea{width:100%;padding:13px;margin:6px 0;background:#000;border:1px solid #333;border-radius:10px;color:#fff;font-size:15px;font-family:inherit;direction:ltr;text-align:left;transition:border .2s}
-input:focus,textarea:focus{outline:none;border-color:#0f0}
-input::placeholder,textarea::placeholder{direction:rtl;text-align:right;color:#555}
+.tab{flex:1;padding:15px;background:linear-gradient(135deg,#1a0d2e,#2d1b4e);border:2px solid #3d2b5e;border-radius:12px;cursor:pointer;text-align:center;font-weight:bold;color:#b847ff;font-size:14px;transition:all .3s;font-family:'Courier New',monospace;letter-spacing:1px}
+.tab:hover{border-color:#b847ff;transform:translateY(-2px)}
+.tab.active{background:linear-gradient(135deg,#b847ff,#ff47b8);color:#000;border-color:#b847ff;box-shadow:0 0 25px rgba(184,71,255,.5),0 0 50px rgba(255,71,184,.3)}
+.tab.tg.active{background:linear-gradient(135deg,#0088ff,#00ffff);border-color:#00ffff;box-shadow:0 0 25px rgba(0,136,255,.5),0 0 50px rgba(0,255,255,.3)}
+
+.card{background:linear-gradient(135deg,rgba(26,13,46,.9),rgba(45,27,78,.7));border:1px solid #3d2b5e;border-radius:15px;padding:20px;margin-bottom:15px;position:relative;overflow:hidden;backdrop-filter:blur(10px)}
+.card::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;background:linear-gradient(180deg,#b847ff,#ff47b8);opacity:.6}
+.card h3{margin-bottom:14px;font-size:15px;letter-spacing:1px;display:flex;align-items:center;gap:8px}
+.card h3 .num{background:#b847ff;color:#000;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold}
+
+.status{display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:14px;padding:12px;background:#0a0210;border-radius:10px;border:1px solid #2d1b4e}
+.dot{width:12px;height:12px;border-radius:50%;background:#ff0040;flex-shrink:0;box-shadow:0 0 8px #ff0040}
+.dot.on{background:#b847ff;box-shadow:0 0 12px #b847ff;animation:pulse 2s infinite}
+
+input,textarea{width:100%;padding:13px;margin:6px 0;background:#0a0210;border:1px solid #2d1b5e;border-radius:10px;color:#b847ff;font-size:14px;font-family:'Courier New',monospace;direction:ltr;text-align:left;transition:all .3s}
+input:focus,textarea:focus{outline:none;border-color:#b847ff;box-shadow:0 0 15px rgba(184,71,255,.3);background:#0d0318}
+input::placeholder,textarea::placeholder{direction:rtl;text-align:right;color:#5e3d8e;font-family:'Cairo',sans-serif}
 textarea{min-height:75px;resize:vertical}
-button.act{width:100%;padding:15px;background:#0f0;color:#000;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-top:10px;transition:all .2s}
-button.act:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(0,255,0,.3)}
-button.act:disabled{opacity:.5;cursor:not-allowed;transform:none}
-button.blue{background:#08c;color:#fff}
-button.blue:hover{box-shadow:0 5px 20px rgba(0,136,204,.3)}
-.code-box{background:#000;border:2px dashed #0f0;padding:18px;border-radius:12px;text-align:center;margin:12px 0;display:none}
-.code-box.show{display:block;animation:fadeIn .3s}
-.code-box .label{color:#888;font-size:12px;margin-bottom:8px}
-.code-box .code{font-size:32px;color:#ff0;font-weight:bold;letter-spacing:5px;font-family:monospace;direction:ltr;text-shadow:0 0 15px #ff0}
+
+button.act{width:100%;padding:15px;background:linear-gradient(135deg,#b847ff,#ff47b8);color:#000;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:10px;transition:all .3s;font-family:'Courier New',monospace;letter-spacing:2px;position:relative;overflow:hidden}
+button.act::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left .5s}
+button.act:hover::before{left:100%}
+button.act:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(184,71,255,.5)}
+button.act:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+button.act.blue{background:linear-gradient(135deg,#0088ff,#00ffff);color:#000}
+button.act.blue:hover{box-shadow:0 10px 30px rgba(0,136,255,.5)}
+button.stop{background:linear-gradient(135deg,#ff0040,#ff6b00)!important;color:#fff!important;animation:stopPulse 1s infinite}
+@keyframes stopPulse{50%{box-shadow:0 0 30px #ff0040}}
+
+.code-box{background:#0a0210;border:2px dashed #b847ff;padding:18px;border-radius:12px;text-align:center;margin:12px 0;display:none}
+.code-box.show{display:block;animation:fadeIn .4s}
+.code-box .label{color:#8b5fbf;font-size:12px;margin-bottom:8px;letter-spacing:2px}
+.code-box .code{font-size:32px;color:#b847ff;font-weight:bold;letter-spacing:6px;font-family:'Courier New',monospace;direction:ltr;text-shadow:0 0 20px #b847ff;animation:codeGlow 2s infinite}
+@keyframes codeGlow{50%{text-shadow:0 0 30px #ff47b8,0 0 50px #b847ff}}
 @keyframes fadeIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-.progress{height:12px;background:#21262d;border-radius:6px;overflow:hidden;margin-top:12px;display:none}
+
+.progress{height:14px;background:#0a0210;border-radius:7px;overflow:hidden;margin-top:12px;display:none;border:1px solid #2d1b5e}
 .progress.show{display:block}
-.fill{height:100%;width:0%;background:linear-gradient(90deg,#0f0,#ff0);transition:width .3s;border-radius:6px}
-.info{color:#888;font-size:12px;margin-top:10px;text-align:center;line-height:1.6}
-.msg-box{background:#000;border:1px solid #333;border-radius:10px;padding:12px;margin:10px 0;font-size:14px;display:none;text-align:center;line-height:1.5}
+.fill{height:100%;width:0%;background:linear-gradient(90deg,#b847ff,#ff47b8,#b847ff);background-size:200% 100%;transition:width .3s;border-radius:7px;animation:shimmer 2s linear infinite}
+@keyframes shimmer{0%{background-position:0% 0}100%{background-position:200% 0}}
+
+.info{color:#8b5fbf;font-size:12px;margin-top:10px;text-align:center;line-height:1.6;font-family:'Cairo',sans-serif}
+
+.msg-box{background:#0a0210;border:1px solid #2d1b5e;border-radius:10px;padding:12px;margin:10px 0;font-size:13px;display:none;text-align:center;line-height:1.5;font-family:'Cairo',sans-serif}
 .msg-box.show{display:block;animation:fadeIn .3s}
-.msg-box.ok{border-color:#0f0;color:#0f0;background:rgba(0,255,0,.05)}
-.msg-box.err{border-color:#f00;color:#f00;background:rgba(255,0,0,.05)}
-.msg-box.warn{border-color:#ff0;color:#ff0;background:rgba(255,255,0,.05)}
-.groups{max-height:220px;overflow-y:auto;background:#000;border-radius:10px;padding:10px;margin-top:10px;display:none;border:1px solid #333}
+.msg-box.ok{border-color:#b847ff;color:#b847ff;background:rgba(184,71,255,.08)}
+.msg-box.err{border-color:#ff0040;color:#ff0040;background:rgba(255,0,64,.08)}
+.msg-box.warn{border-color:#ffaa00;color:#ffaa00;background:rgba(255,170,0,.08)}
+
+.groups{max-height:220px;overflow-y:auto;background:#0a0210;border-radius:10px;padding:10px;margin-top:10px;display:none;border:1px solid #2d1b5e}
 .groups.show{display:block}
-.groups div{padding:10px;border-bottom:1px solid #222;cursor:pointer;font-size:13px;transition:.2s}
-.groups div:hover{background:#1a1a1a;color:#0f0;padding-right:15px}
+.groups div{padding:10px;border-bottom:1px solid #1a0d2e;cursor:pointer;font-size:13px;transition:.2s}
+.groups div:hover{background:linear-gradient(90deg,#1a0d2e,#2d1b4e);color:#b847ff;padding-right:18px}
 .groups div:last-child{border-bottom:none}
-.hint{background:rgba(255,255,0,.08);border:1px solid rgba(255,255,0,.3);border-radius:8px;padding:10px;font-size:12px;color:#ff0;margin-top:10px;line-height:1.5}
-.hint a{color:#0ff;text-decoration:none}
+
+/* ═══ JOBS PANEL ═══ */
+.jobs-panel{background:linear-gradient(135deg,rgba(26,13,46,.95),rgba(45,27,78,.85));border:1px solid #3d2b5e;border-radius:15px;padding:20px;margin-top:15px;position:relative}
+.jobs-panel::before{content:'';position:absolute;top:0;right:0;width:4px;height:100%;background:linear-gradient(180deg,#ff47b8,#b847ff);opacity:.6}
+.jobs-panel h3{margin-bottom:14px;font-size:15px;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
+.jobs-panel h3 button{background:#2d1b5e;color:#b847ff;border:1px solid #3d2b5e;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit}
+.jobs-panel h3 button:hover{background:#b847ff;color:#000}
+
+.job-item{background:#0a0210;border:1px solid #2d1b5e;border-radius:10px;padding:14px;margin-bottom:10px;position:relative;overflow:hidden}
+.job-item.running{border-color:#b847ff;box-shadow:0 0 15px rgba(184,71,255,.2)}
+.job-item.done{border-color:#1a5c2e;opacity:.6}
+.job-item.stopped{border-color:#ffaa00;opacity:.7}
+.job-item.failed{border-color:#ff0040;opacity:.7}
+
+.job-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px}
+.job-type{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:bold;letter-spacing:1px}
+.job-type.wa{background:#b847ff;color:#000}
+.job-type.tg{background:#0088ff;color:#fff}
+.job-status{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:bold}
+.job-status.running{background:#b847ff;color:#000;animation:pulse 1.5s infinite}
+.job-status.done{background:#1a5c2e;color:#b847ff}
+.job-status.stopped{background:#ffaa00;color:#000}
+.job-status.failed{background:#ff0040;color:#fff}
+
+.job-target{color:#fff;font-size:14px;font-weight:bold;direction:ltr;text-align:right;margin-bottom:6px}
+.job-stats{display:flex;justify-content:space-between;color:#8b5fbf;font-size:12px;margin-bottom:6px}
+.job-stats .sent{color:#b847ff;font-weight:bold}
+.job-stats .failed{color:#ff0040;font-weight:bold}
+
+.job-progress{height:6px;background:#0a0210;border-radius:3px;overflow:hidden;margin-top:8px}
+.job-progress-fill{height:100%;background:linear-gradient(90deg,#b847ff,#ff47b8);transition:width .3s;border-radius:3px}
+.job-item.done .job-progress-fill{background:#1a5c2e}
+.job-item.stopped .job-progress-fill{background:#ffaa00}
+
+.job-stop-btn{position:absolute;left:12px;top:12px;background:#ff0040;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:bold;font-family:inherit}
+.job-stop-btn:hover{background:#ff6b00;transform:scale(1.05)}
+
+.empty-jobs{text-align:center;color:#5e3d8e;padding:20px;font-size:13px;font-family:'Cairo',sans-serif}
+
+.hint{background:rgba(255,170,0,.08);border:1px solid rgba(255,170,0,.3);border-radius:8px;padding:10px;font-size:12px;color:#ffaa00;margin-top:10px;line-height:1.5;font-family:'Cairo',sans-serif;text-align:center}
 </style>
 </head>
 <body>
+<div class="scanline"></div>
 <div class="container">
-    <h1>⚡ SPAM TOOL</h1>
-    <p class="sub">WhatsApp + Telegram Web Panel</p>
-
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('wa')">📱 WhatsApp</div>
-        <div class="tab tg" onclick="switchTab('tg')">✈️ Telegram</div>
+    <div class="header">
+        <h1>⚡ PURPLE HACK <span class="dot-live"></span></h1>
+        <div class="sub">WHATSAPP + TELEGRAM SPAMMER v3.0</div>
+        <div class="channel">📢 @PUBG_SKIN_HACKE</div>
     </div>
 
-    <!-- ═══ WhatsApp ═══ -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('wa')">📱 WHATSAPP</div>
+        <div class="tab tg" onclick="switchTab('tg')">✈️ TELEGRAM</div>
+    </div>
+
+    <!-- WhatsApp -->
     <div id="waPanel">
         <div class="card">
-            <h3 style="color:#0f0">🔗 ربط الواتساب</h3>
+            <h3><span class="num">1</span> ربط الواتساب</h3>
             <div class="status"><span class="dot" id="waDot"></span><span id="waStatus">غير متصل</span></div>
             <input type="text" id="waPhone" placeholder="📱 رقمك (201012345678)">
             <button class="act" onclick="waConnect()">🔑 طلب كود الربط</button>
             <div class="code-box" id="waCodeBox">
-                <div class="label">🔑 كود الربط:</div>
+                <div class="label">🔑 PAIRING CODE</div>
                 <div class="code" id="waCode">----</div>
-                <div class="info">واتساب → الأجهزة المرتبطة → ربط برقم الهاتف</div>
+                <div class="info">واتساب → الأجهزة المرتبطة → الربط برقم الهاتف</div>
             </div>
             <div class="msg-box" id="waCodeMsg"></div>
         </div>
 
         <div class="card">
-            <h3 style="color:#0f0">🚀 سبام واتساب</h3>
-            <input type="text" id="waTarget" placeholder="📱 رقم الهدف أو اختر جروب من تحت">
+            <h3><span class="num">2</span> سبام واتساب</h3>
+            <input type="text" id="waTarget" placeholder="📱 رقم الهدف">
             <textarea id="waMsg" placeholder="💬 الرسالة">Hello!</textarea>
             <input type="number" id="waCount" value="10" placeholder="🔢 العدد">
             <button class="act" id="waSendBtn" onclick="waSend()">⚡ إرسال</button>
@@ -89,37 +163,30 @@ button.blue:hover{box-shadow:0 5px 20px rgba(0,136,204,.3)}
         </div>
 
         <div class="card">
-            <h3 style="color:#0f0">📋 الجروبات</h3>
+            <h3><span class="num">3</span> الجروبات</h3>
             <button class="act" onclick="waGroups()">🔄 جلب الجروبات</button>
             <div class="groups" id="waGroupsList"></div>
         </div>
     </div>
 
-    <!-- ═══ Telegram ═══ -->
+    <!-- Telegram -->
     <div id="tgPanel" style="display:none">
         <div class="card">
-            <h3 style="color:#08c">🔗 ربط التليجرام</h3>
+            <h3><span class="num">1</span> ربط التليجرام</h3>
             <div class="status"><span class="dot" id="tgDot"></span><span id="tgStatus">غير متصل</span></div>
-            
-            <div class="hint">
-                💡 API ID و Hash مضبوطين بالفعل من عند صاحب الأداة
-            </div>
-
-            <input type="text" id="tgPhone" placeholder="📱 رقمك بمفتاح الدولة (201012345678)">
+            <div class="hint">💡 API مضبوط من صاحب الأداة - تحتاج رقمك فقط</div>
+            <input type="text" id="tgPhone" placeholder="📱 رقمك (201012345678)">
             <button class="act blue" id="tgConnectBtn" onclick="tgConnect()">📩 إرسال كود التحقق</button>
-            
-            <input type="text" id="tgCode" placeholder="📩 أدخل كود التحقق هنا" style="display:none;direction:ltr">
-            <button class="act blue" id="tgVerifyBtn" onclick="tgVerify()" style="display:none">✅ تأكيد الكود</button>
-            
-            <input type="text" id="tgPassword" placeholder="🔐 كلمة سر 2FA (لو موجودة)" style="display:none">
-            <button class="act blue" id="tgPassBtn" onclick="tgPasswordSubmit()" style="display:none">✅ تأكيد كلمة السر</button>
-            
+            <input type="text" id="tgCode" placeholder="📩 كود التحقق" style="display:none">
+            <button class="act blue" id="tgVerifyBtn" onclick="tgVerify()" style="display:none">✅ تأكيد</button>
+            <input type="text" id="tgPassword" placeholder="🔐 كلمة سر 2FA" style="display:none">
+            <button class="act blue" id="tgPassBtn" onclick="tgPasswordSubmit()" style="display:none">✅ تأكيد</button>
             <div class="msg-box" id="tgCodeMsg"></div>
         </div>
 
         <div class="card">
-            <h3 style="color:#08c">🚀 سبام تليجرام</h3>
-            <input type="text" id="tgTarget" placeholder="👤 @username أو ID أو اختر جروب من تحت">
+            <h3><span class="num">2</span> سبام تليجرام</h3>
+            <input type="text" id="tgTarget" placeholder="👤 @username أو ID">
             <textarea id="tgMsg" placeholder="💬 الرسالة">Hello!</textarea>
             <input type="number" id="tgCount" value="10" placeholder="🔢 العدد">
             <button class="act blue" id="tgSendBtn" onclick="tgSend()">⚡ إرسال</button>
@@ -128,15 +195,24 @@ button.blue:hover{box-shadow:0 5px 20px rgba(0,136,204,.3)}
         </div>
 
         <div class="card">
-            <h3 style="color:#08c">📋 الجروبات</h3>
+            <h3><span class="num">3</span> الجروبات</h3>
             <button class="act blue" onclick="tgGroups()">🔄 جلب الجروبات</button>
             <div class="groups" id="tgGroupsList"></div>
         </div>
     </div>
+
+    <!-- Jobs Panel -->
+    <div class="jobs-panel">
+        <h3>
+            <span>📊 العمليات الجارية</span>
+            <button onclick="clearJobs()">🗑️ مسح</button>
+        </h3>
+        <div id="jobsList"><div class="empty-jobs">لا توجد عمليات</div></div>
+    </div>
 </div>
 
 <script>
-const socket = io({ timeout: 120000 });
+const socket = io({ timeout: 300000 });
 
 // ═══ WhatsApp ═══
 socket.on('wa-status', (st) => {
@@ -156,22 +232,10 @@ socket.on('wa-code-status', (msg) => {
     b.className = 'msg-box show ' + (msg.includes('❌') ? 'err' : 'ok');
 });
 
-socket.on('wa-progress', (d) => {
-    const pct = Math.round(d.sent / d.total * 100);
-    document.getElementById('waFill').style.width = pct + '%';
-    document.getElementById('waProgText').textContent = pct + '% (' + d.sent + '/' + d.total + ')';
-});
-
-socket.on('wa-done', (d) => {
-    document.getElementById('waSendBtn').disabled = false;
-    setTimeout(() => document.getElementById('waProg').classList.remove('show'), 2000);
-    alert('✅ Sent: ' + d.sent + ' | Failed: ' + d.failed);
-});
-
 socket.on('wa-groups-list', (gs) => {
     const el = document.getElementById('waGroupsList');
     el.classList.add('show');
-    el.innerHTML = gs.length ? gs.map(g => `<div onclick="document.getElementById('waTarget').value='${g.id}'">📌 ${g.name}</div>`).join('') : '<div style="color:#888;text-align:center">لا توجد جروبات</div>';
+    el.innerHTML = gs.length ? gs.map(g => `<div onclick="document.getElementById('waTarget').value='${g.id}'">📌 ${g.name}</div>`).join('') : '<div style="color:#5e3d8e;text-align:center;font-family:Cairo">لا توجد جروبات</div>';
 });
 
 // ═══ Telegram ═══
@@ -197,22 +261,44 @@ socket.on('tg-need-password', () => {
     document.getElementById('tgPassBtn').style.display = 'block';
 });
 
-socket.on('tg-progress', (d) => {
-    const pct = Math.round(d.sent / d.total * 100);
-    document.getElementById('tgFill').style.width = pct + '%';
-    document.getElementById('tgProgText').textContent = pct + '% (' + d.sent + '/' + d.total + ')';
-});
-
-socket.on('tg-done', (d) => {
-    document.getElementById('tgSendBtn').disabled = false;
-    setTimeout(() => document.getElementById('tgProg').classList.remove('show'), 2000);
-    alert('✅ Sent: ' + d.sent + ' | Failed: ' + d.failed);
-});
-
 socket.on('tg-groups-list', (gs) => {
     const el = document.getElementById('tgGroupsList');
     el.classList.add('show');
-    el.innerHTML = gs.length ? gs.map(g => `<div onclick="document.getElementById('tgTarget').value='${g.id}'">📌 ${g.name}</div>`).join('') : '<div style="color:#888;text-align:center">لا توجد جروبات</div>';
+    el.innerHTML = gs.length ? gs.map(g => `<div onclick="document.getElementById('tgTarget').value='${g.id}'">📌 ${g.name}</div>`).join('') : '<div style="color:#5e3d8e;text-align:center;font-family:Cairo">لا توجد جروبات</div>';
+});
+
+// ═══ JOBS Live Update ═══
+socket.on('jobs-update', (jobs) => {
+    const list = document.getElementById('jobsList');
+    if (!jobs.length) {
+        list.innerHTML = '<div class="empty-jobs">لا توجد عمليات</div>';
+        return;
+    }
+    
+    list.innerHTML = jobs.map(j => {
+        const pct = Math.round(j.sent / j.count * 100);
+        const icon = j.type === 'whatsapp' ? '📱' : '✈️';
+        const typeClass = j.type === 'whatsapp' ? 'wa' : 'tg';
+        const statusText = { running: '🟢 جاري', done: '✅ انتهى', stopped: '⏸️ متوقف', failed: '❌ فشل' }[j.status] || j.status;
+        const stopBtn = j.status === 'running' ? `<button class="job-stop-btn" onclick="stopJob('${j.id}')">⏹️ إيقاف</button>` : '';
+        
+        return `
+            <div class="job-item ${j.status}">
+                ${stopBtn}
+                <div class="job-header">
+                    <span class="job-type ${typeClass}">${icon} ${j.type.toUpperCase()}</span>
+                    <span class="job-status ${j.status}">${statusText}</span>
+                </div>
+                <div class="job-target">${j.target}</div>
+                <div class="job-stats">
+                    <span>✉️ <span class="sent">${j.sent}</span> / ${j.count}</span>
+                    <span>❌ <span class="failed">${j.failed}</span></span>
+                    <span>${pct}%</span>
+                </div>
+                <div class="job-progress"><div class="job-progress-fill" style="width:${pct}%"></div></div>
+            </div>
+        `;
+    }).join('');
 });
 
 socket.on('error', (m) => alert('❌ ' + m));
@@ -242,8 +328,6 @@ function waSend() {
     const m = document.getElementById('waMsg').value;
     const c = parseInt(document.getElementById('waCount').value);
     if (!n || !m || !c) return alert('املأ البيانات');
-    document.getElementById('waSendBtn').disabled = true;
-    document.getElementById('waProg').classList.add('show');
     socket.emit('wa-spam', { number: n, message: m, count: c });
 }
 
@@ -274,12 +358,19 @@ function tgSend() {
     const m = document.getElementById('tgMsg').value;
     const c = parseInt(document.getElementById('tgCount').value);
     if (!t || !m || !c) return alert('املأ البيانات');
-    document.getElementById('tgSendBtn').disabled = true;
-    document.getElementById('tgProg').classList.add('show');
     socket.emit('tg-spam', { target: t, message: m, count: c });
 }
 
 function tgGroups() { socket.emit('tg-groups'); }
+
+function stopJob(jobId) {
+    if (jobId.startsWith('wa_')) socket.emit('wa-stop', jobId);
+    else socket.emit('tg-stop', jobId);
+}
+
+function clearJobs() {
+    if (confirm('مسح كل العمليات؟')) socket.emit('clear-jobs');
+}
 </script>
 </body>
 </html>

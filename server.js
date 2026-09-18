@@ -7,9 +7,9 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { 
+const io = new Server(server, {
     cors: { origin: '*' },
-    pingTimeout: 120000,
+    pingTimeout: 300000,
     pingInterval: 25000
 });
 app.use(express.static(path.join(__dirname, 'public')));
@@ -19,16 +19,23 @@ const { TelegramClient } = require('telegram');
 const { StringSession } = require('telegram/sessions');
 const { Api } = require('telegram');
 
-// ═══════════ Telegram API (Your Credentials) ═══════════
 const TG_API_ID = 38231139;
 const TG_API_HASH = '8c6f63a727badd926100bdf80b0566fc';
 
-// ═══════════ Global State ═══════════
+// ═══════ State ═══════
 let waSocket = null, waConnected = false, waState = null;
 let tgClient = null, tgConnected = false;
 let pendingTG = {};
 
-// ═══════════ WhatsApp ═══════════
+// ═══════ Jobs (for tracking) ═══════
+let jobs = {}; // { jobId: { type, target, message, count, sent, failed, status, startTime } }
+let activeJobs = {}; // { jobId: { cancel: false } }
+
+function broadcastJobs() {
+    io.emit('jobs-update', Object.values(jobs));
+}
+
+// ═══════ WhatsApp ═══════
 async function initWA() {
     try {
         const { state, saveCreds } = await useMultiFileAuthState('wa_auth');
@@ -55,38 +62,29 @@ async function initWA() {
                 waConnected = false;
                 io.emit('wa-status', 'disconnected');
                 const code = (u.lastDisconnect?.error)?.output?.statusCode;
-                if (code !== DisconnectReason.loggedOut) {
-                    setTimeout(() => initWA(), 5000);
-                }
+                if (code !== DisconnectReason.loggedOut) setTimeout(() => initWA(), 5000);
             }
         });
-    } catch(e) {
-        console.log('WA init error:', e.message);
-    }
+    } catch(e) { console.log('WA init:', e.message); }
 }
 
 async function requestWACode(phone) {
     try {
         if (!waSocket) await initWA();
         if (waState.creds.registered) return { error: 'Already registered' };
-        const clean = phone.replace(/\D/g, '');
-        const code = await waSocket.requestPairingCode(clean);
+        const code = await waSocket.requestPairingCode(phone.replace(/\D/g, ''));
         return { code: code.match(/.{1,4}/g).join('-') };
-    } catch(e) {
-        return { error: e.message };
-    }
+    } catch(e) { return { error: e.message }; }
 }
 
-// ═══════════ Telegram (Your API) ═══════════
+// ═══════ Telegram ═══════
 async function initTG(phone, socket) {
     try {
         let ss = '';
         try { ss = fs.readFileSync('tg_session.txt', 'utf8'); } catch(e) {}
 
         tgClient = new TelegramClient(new StringSession(ss), TG_API_ID, TG_API_HASH, {
-            connectionRetries: 5,
-            useWSS: true,
-            timeout: 120000
+            connectionRetries: 5, useWSS: true, timeout: 120000
         });
 
         await tgClient.connect();
@@ -94,33 +92,22 @@ async function initTG(phone, socket) {
         if (await tgClient.checkAuthorization()) {
             tgConnected = true;
             socket.emit('tg-status', 'connected');
-            socket.emit('tg-code-status', '✅ Session موجود - متصل بالفعل!');
+            socket.emit('tg-code-status', '✅ متصل بالفعل!');
             return { alreadyConnected: true };
         }
 
-        // Send code
         const result = await tgClient.invoke(new Api.auth.SendCode({
             phoneNumber: phone,
             apiId: TG_API_ID,
             apiHash: TG_API_HASH,
-            settings: new Api.CodeSettings({
-                allowFlashCall: false,
-                currentNumber: false,
-                allowAppHash: true
-            })
+            settings: new Api.CodeSettings({ allowFlashCall: false, currentNumber: false, allowAppHash: true })
         }));
 
-        pendingTG[phone] = {
-            phoneCodeHash: result.phoneCodeHash,
-            phone
-        };
-
+        pendingTG[phone] = { phoneCodeHash: result.phoneCodeHash, phone };
         socket.emit('tg-code-status', '📩 تم إرسال كود على تليجرام');
         socket.emit('tg-need-code', 'أدخل كود التحقق');
         return { needCode: true };
-    } catch(e) {
-        return { error: e.message };
-    }
+    } catch(e) { return { error: e.message }; }
 }
 
 async function verifyTGCode(phone, code, socket) {
@@ -130,9 +117,7 @@ async function verifyTGCode(phone, code, socket) {
 
         try {
             await tgClient.invoke(new Api.auth.SignIn({
-                phoneNumber: phone,
-                phoneCodeHash: phoneCodeHash,
-                phoneCode: code
+                phoneNumber: phone, phoneCodeHash, phoneCode: code
             }));
         } catch(e) {
             if (e.message && e.message.includes('SESSION_PASSWORD_NEEDED')) {
@@ -146,40 +131,33 @@ async function verifyTGCode(phone, code, socket) {
         fs.writeFileSync('tg_session.txt', tgClient.session.save());
         delete pendingTG[phone];
         socket.emit('tg-status', 'connected');
-        socket.emit('tg-code-status', '✅ تم الاتصال بنجاح!');
+        socket.emit('tg-code-status', '✅ تم الاتصال!');
         return { success: true };
-    } catch(e) {
-        return { error: e.message };
-    }
+    } catch(e) { return { error: e.message }; }
 }
 
 async function verifyTGPassword(phone, password, socket) {
     try {
-        const { apiId, apiHash } = { apiId: TG_API_ID, apiHash: TG_API_HASH };
         const { computeCheck } = require('telegram/Password');
         const passwordInfo = await tgClient.invoke(new Api.account.GetPassword());
         const passwordCheck = await computeCheck(passwordInfo, password);
-
-        await tgClient.invoke(new Api.auth.CheckPassword({
-            password: passwordCheck
-        }));
+        await tgClient.invoke(new Api.auth.CheckPassword({ password: passwordCheck }));
 
         tgConnected = true;
         fs.writeFileSync('tg_session.txt', tgClient.session.save());
         delete pendingTG[phone];
         socket.emit('tg-status', 'connected');
-        socket.emit('tg-code-status', '✅ تم الاتصال بنجاح!');
+        socket.emit('tg-code-status', '✅ تم الاتصال!');
         return { success: true };
-    } catch(e) {
-        return { error: e.message };
-    }
+    } catch(e) { return { error: e.message }; }
 }
 
-// ═══════════ Socket.IO ═══════════
+// ═══════ Socket.IO ═══════
 io.on('connection', (socket) => {
     console.log('👤 Client:', socket.id);
     socket.emit('wa-status', waConnected ? 'connected' : 'disconnected');
     socket.emit('tg-status', tgConnected ? 'connected' : 'disconnected');
+    socket.emit('jobs-update', Object.values(jobs));
 
     // WhatsApp
     socket.on('wa-connect', async (phone) => {
@@ -191,18 +169,42 @@ io.on('connection', (socket) => {
 
     socket.on('wa-spam', async (d) => {
         if (!waConnected) return socket.emit('error', 'WA not connected');
+        const jobId = 'wa_' + Date.now();
         const target = d.number.includes('@s.whatsapp.net') ? d.number : d.number.replace(/\D/g, '') + '@s.whatsapp.net';
-        let sent = 0, failed = 0;
-        const BATCH = 30;
+        
+        jobs[jobId] = {
+            id: jobId, type: 'whatsapp', target: target.split('@')[0],
+            message: d.message, count: d.count, sent: 0, failed: 0,
+            status: 'running', startTime: Date.now()
+        };
+        activeJobs[jobId] = { cancel: false };
+        broadcastJobs();
+
+        const BATCH = 50; // أسرع
         for (let i = 0; i < d.count; i += BATCH) {
+            if (activeJobs[jobId].cancel) {
+                jobs[jobId].status = 'stopped';
+                broadcastJobs();
+                break;
+            }
             const batch = [];
             for (let j = i; j < Math.min(i + BATCH, d.count); j++) {
-                batch.push(waSocket.sendMessage(target, { text: d.message }).then(() => sent++).catch(() => { sent++; failed++; }));
+                batch.push(
+                    waSocket.sendMessage(target, { text: d.message })
+                        .then(() => { jobs[jobId].sent++; })
+                        .catch(() => { jobs[jobId].sent++; jobs[jobId].failed++; })
+                );
             }
             await Promise.all(batch);
-            socket.emit('wa-progress', { sent, failed, total: d.count });
+            broadcastJobs();
         }
-        socket.emit('wa-done', { sent, failed });
+        if (jobs[jobId].status === 'running') jobs[jobId].status = 'done';
+        broadcastJobs();
+        delete activeJobs[jobId];
+    });
+
+    socket.on('wa-stop', (jobId) => {
+        if (activeJobs[jobId]) activeJobs[jobId].cancel = true;
     });
 
     socket.on('wa-groups', async () => {
@@ -232,19 +234,47 @@ io.on('connection', (socket) => {
 
     socket.on('tg-spam', async (d) => {
         if (!tgConnected) return socket.emit('error', 'TG not connected');
-        let sent = 0, failed = 0;
-        for (let i = 0; i < d.count; i++) {
-            try {
-                await tgClient.sendMessage(d.target, { message: d.message });
-                sent++;
-                socket.emit('tg-progress', { sent, failed, total: d.count });
-            } catch(e) {
-                failed++;
-                if (e.message && e.message.includes('FLOOD')) await new Promise(r => setTimeout(r, 5000));
+        const jobId = 'tg_' + Date.now();
+        
+        jobs[jobId] = {
+            id: jobId, type: 'telegram', target: d.target,
+            message: d.message, count: d.count, sent: 0, failed: 0,
+            status: 'running', startTime: Date.now()
+        };
+        activeJobs[jobId] = { cancel: false };
+        broadcastJobs();
+
+        // أسرع: بدون timeout - Telegram API بتعمل Rate Limit تلقائي
+        const BATCH = 20;
+        for (let i = 0; i < d.count; i += BATCH) {
+            if (activeJobs[jobId].cancel) {
+                jobs[jobId].status = 'stopped';
+                broadcastJobs();
+                break;
             }
-            await new Promise(r => setTimeout(r, 100));
+            const batch = [];
+            for (let j = i; j < Math.min(i + BATCH, d.count); j++) {
+                batch.push(
+                    tgClient.sendMessage(d.target, { message: d.message })
+                        .then(() => { jobs[jobId].sent++; })
+                        .catch((e) => { 
+                            jobs[jobId].failed++; 
+                            if (e.message && e.message.includes('FLOOD')) {
+                                return new Promise(r => setTimeout(r, 3000));
+                            }
+                        })
+                );
+            }
+            await Promise.all(batch);
+            broadcastJobs();
         }
-        socket.emit('tg-done', { sent, failed });
+        if (jobs[jobId].status === 'running') jobs[jobId].status = 'done';
+        broadcastJobs();
+        delete activeJobs[jobId];
+    });
+
+    socket.on('tg-stop', (jobId) => {
+        if (activeJobs[jobId]) activeJobs[jobId].cancel = true;
     });
 
     socket.on('tg-groups', async () => {
@@ -254,6 +284,11 @@ io.on('connection', (socket) => {
             const g = d.filter(x => x.isGroup || x.isChannel);
             socket.emit('tg-groups-list', g.map(x => ({ id: String(x.id), name: x.name })));
         } catch(e) { socket.emit('error', e.message); }
+    });
+
+    socket.on('clear-jobs', () => {
+        jobs = {};
+        broadcastJobs();
     });
 });
 
