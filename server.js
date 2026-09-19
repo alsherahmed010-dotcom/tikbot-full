@@ -345,57 +345,35 @@ async function logoutWA(sid){
 async function blastInstant(target, payload, count, isGroup, opts){
     let sent = 0, failed = 0;
     let lastError = null;
-    let consecutiveFails = 0;
-    let aborted = false;
-    const promises = [];
     const antiBan = opts.antiBan !== false;
     const sessionId = opts.sessionId;
+    // ⚡ دفعات كبيرة — أي رقم يشتغل بدون انهيار
+    const CHUNK = 2000;
 
-    for(let i = 0; i < count; i++){
-        if(opts.cancelled && opts.cancelled()) { aborted = true; break; }
-        // لو الحساب اتحظر، وقف فوراً
-        if(sessionId && clients[sessionId]?.waBlocked) { aborted = true; break; }
-
-        let finalPayload = payload;
-        if(antiBan && payload.text) finalPayload = { text: varyMessage(payload.text) };
-
-        promises.push(
-            opts.send(finalPayload)
-                .then(()=>{
-                    sent++;
-                    consecutiveFails = 0;
-                    if(opts.update) opts.update(sent, failed);
-                })
-                .catch((err)=>{
-                    sent++;
-                    failed++;
-                    consecutiveFails++;
-                    const em = String(err?.message || err || 'unknown');
-                    lastError = em;
-                    if(opts.update) opts.update(sent, failed);
-
-                    // 🔴 كشف الحظر من رسالة الخطأ
-                    if(sessionId && !clients[sessionId]?.waBlocked){
-                        let blockReason = null;
-                        if(em.includes('403') || em.toLowerCase().includes('forbidden')) blockReason = 'الحساب محظور (403)';
-                        else if(em.includes('428')) blockReason = 'الجلسة موقوفة مؤقتاً (428)';
-                        else if(em.includes('429') || em.toLowerCase().includes('too many')) blockReason = 'تجاوزت الحد (429)';
-                        else if(em.toLowerCase().includes('banned')) blockReason = 'الحساب محظور';
-                        else if(consecutiveFails >= 10) blockReason = 'فشل ' + consecutiveFails + ' رسائل متتالية';
-                        if(blockReason){
-                            clients[sessionId].waBlocked = true;
-                            clients[sessionId].blockReason = blockReason;
-                            emit(sessionId, 'wa-blocked', { reason: blockReason, code: 'send_fail' });
-                            aborted = true;
-                        }
-                    }
-                })
-        );
-        if(antiBan && i > 0 && i % 20 === 0) await new Promise(r => setTimeout(r, randomDelay(200)));
-        if(aborted) break;
+    let processed = 0;
+    while (processed < count) {
+        if (opts.cancelled && opts.cancelled()) break;
+        const chunkSize = Math.min(CHUNK, count - processed);
+        const promises = [];
+        for (let j = 0; j < chunkSize; j++) {
+            let finalPayload = payload;
+            if (antiBan && payload.text) finalPayload = { text: varyMessage(payload.text) };
+            promises.push(
+                opts.send(finalPayload)
+                    .then(() => { sent++; })
+                    .catch((err) => {
+                        failed++;
+                        lastError = String(err?.message || err || 'unknown');
+                    })
+            );
+        }
+        await Promise.all(promises);
+        if (opts.update) opts.update(sent, failed);
+        processed += chunkSize;
+        // تأخير صغير بين الدفعات (يحمي السيرفر بدون توقف)
+        if (processed < count) await new Promise(r => setTimeout(r, 50));
     }
-    await Promise.all(promises);
-    return { sent, failed, aborted, lastError };
+    return { sent, failed, lastError, completed: processed >= count };
 }
 
 async function resumeJobs(sid){
