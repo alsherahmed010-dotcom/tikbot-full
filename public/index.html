@@ -243,10 +243,10 @@ textarea{min-height:80px;resize:vertical;line-height:1.5}
   </div>
 
   <div class="stats">
-    <div class="st-box"><div class="n" id="stTotal">0</div><div class="t">SENT</div></div>
-    <div class="st-box"><div class="n" id="stFailed">0</div><div class="t">FAILED</div></div>
-    <div class="st-box"><div class="n" id="stJobs">0</div><div class="t">ACTIVE</div></div>
-    <div class="st-box"><div class="n" id="stGroups">0</div><div class="t">GROUPS</div></div>
+    <div class="st-box"><div class="n" id="stTotal" style="font-size:20px">صفر</div><div class="t">مرسلة</div></div>
+    <div class="st-box"><div class="n" id="stFailed" style="font-size:20px">صفر</div><div class="t">فشلت</div></div>
+    <div class="st-box"><div class="n" id="stJobs">0</div><div class="t">نشطة</div></div>
+    <div class="st-box"><div class="n" id="stGroups">0</div><div class="t">جروبات</div></div>
   </div>
 
   <div class="grid">
@@ -450,6 +450,38 @@ socket.on('wa-status', (s)=>{
   }
 });
 
+
+// 🔢 تنسيق الأعداد بالعربي
+function fmtArabic(n){
+  n = Number(n) || 0;
+  if(n === 0) return 'صفر';
+  if(n < 1000) return n.toString();
+  if(n < 1000000) {
+    // آلاف
+    const val = n / 1000;
+    if(val === Math.floor(val)) return `${val} ألف`;
+    return `${val.toFixed(1)} ألف`;
+  }
+  if(n < 1000000000) {
+    // ملايين
+    const val = n / 1000000;
+    if(val === Math.floor(val)) return `${val} مليون`;
+    return `${val.toFixed(1)} مليون`;
+  }
+  // مليارات
+  const val = n / 1000000000;
+  if(val === Math.floor(val)) return `${val} مليار`;
+  return `${val.toFixed(1)} مليار`;
+}
+
+// للتنسيق مع الأرقام الصغيرة للتفاصيل
+function fmtDetailed(n){
+  n = Number(n) || 0;
+  const fmt = fmtArabic(n);
+  if(n < 1000) return fmt;
+  return `${fmt} (${n.toLocaleString('ar-EG')})`;
+}
+
 function toast(msg, type='ok'){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -487,20 +519,20 @@ function copyCode(){
   if(!code || code === '----') return;
   const clean = code.replace(/-/g, '');
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(clean).then(()=>{ showCopySuccess(); toast('COPIED'); }).catch(()=>fallbackCopy(clean));
+    navigator.clipboard.writeText(clean).then(()=>{ showCopySuccess(); toast('✅ تم النسخ'); }).catch(()=>fallbackCopy(clean));
   } else fallbackCopy(clean);
 }
 function fallbackCopy(text){
   const ta = document.createElement('textarea');
   ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
   document.body.appendChild(ta); ta.select();
-  try { document.execCommand('copy'); showCopySuccess(); toast('COPIED'); } catch(e){ toast('FAILED','err'); }
+  try { document.execCommand('copy'); showCopySuccess(); toast('✅ تم النسخ'); } catch(e){ toast('FAILED','err'); }
   document.body.removeChild(ta);
 }
 function showCopySuccess(){
   const btn = document.getElementById('copyBtn');
   const orig = btn.textContent;
-  btn.textContent = 'COPIED!'; btn.classList.add('copied');
+  btn.textContent = '✓ تم النسخ'; btn.classList.add('copied');
   setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('copied'); }, 2000);
 }
 function setBadge(id, st, txt){
@@ -517,19 +549,22 @@ socket.on('wa-status', (s)=>{
   const conn = document.getElementById('waConnectedBox');
   if(s==='connected'){
     dot.classList.add('on'); dot.classList.remove('warn');
-    st.textContent = 'ONLINE'; setBadge('waBadge','on','ONLINE');
+    st.textContent = 'متصل'; setBadge('waBadge','on','متصل');
     form.style.display='none'; code.classList.remove('show'); conn.classList.add('show');
   } else if(s==='connecting' || s==='reconnecting'){
     dot.classList.remove('on'); dot.classList.add('warn');
-    st.textContent = s==='reconnecting' ? 'RECONNECTING' : 'CONNECTING';
-    setBadge('waBadge','warn','CONNECTING');
+    st.textContent = s==='reconnecting' ? 'جاري إعادة الاتصال' : 'جاري الاتصال';
+    setBadge('waBadge','warn','يتصل...');
     form.style.display='block'; conn.classList.remove('show');
   } else if(s==='session_exists'){
-    dot.classList.remove('on','warn'); st.textContent='SESSION';
-    setBadge('waBadge','warn','SESSION'); form.style.display='block'; conn.classList.remove('show');
+    dot.classList.remove('on','warn'); st.textContent='جلسة موجودة';
+    setBadge('waBadge','warn','جلسة'); form.style.display='block'; conn.classList.remove('show');
+  } else if(s==='banned' || s==='throttled'){
+    dot.classList.remove('on','warn'); st.textContent = s==='banned' ? 'محظور' : 'موقوف مؤقتاً';
+    setBadge('waBadge','','محظور'); form.style.display='block'; conn.classList.remove('show');
   } else {
-    dot.classList.remove('on','warn'); st.textContent='OFFLINE';
-    setBadge('waBadge','','OFFLINE');
+    dot.classList.remove('on','warn'); st.textContent='غير متصل';
+    setBadge('waBadge','','غير متصل');
     form.style.display='block'; code.classList.remove('show'); conn.classList.remove('show');
   }
 });
@@ -556,13 +591,13 @@ function loadTargetHistory(){
 function loadStats(){
   const s = JSON.parse(localStorage.getItem('stats') || '{"sent":0,"failed":0}');
   stats = s;
-  document.getElementById('stTotal').textContent = s.sent || 0;
-  document.getElementById('stFailed').textContent = s.failed || 0;
+  document.getElementById('stTotal').textContent = fmtArabic(s.sent || 0);
+  document.getElementById('stFailed').textContent = fmtArabic(s.failed || 0);
 }
 function saveStats(){
   localStorage.setItem('stats', JSON.stringify(stats));
-  document.getElementById('stTotal').textContent = stats.sent;
-  document.getElementById('stFailed').textContent = stats.failed;
+  document.getElementById('stTotal').textContent = fmtArabic(stats.sent);
+  document.getElementById('stFailed').textContent = fmtArabic(stats.failed);
 }
 socket.on('stats-update', (d)=>{
   stats.sent = d.sent;
@@ -575,13 +610,20 @@ socket.on('wa-live', (d)=>{
     saveStats();
   }
 });
+
+// تحديث عداد الجروبات بعدد عربي
+socket.on('wa-cache-update', (gs)=>{
+  const total = gs.reduce((a, g) => a + (g.count || 0), 0);
+  const st = document.getElementById('stGroups');
+  if(st) st.textContent = gs.length;
+});
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmtSize(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(2)+'MB';}
 
 async function pickMedia(platform, inp){
   const fs = Array.from(inp.files||[]); inp.value='';
   for(const f of fs){
-    if(f.size > 20*1048576){ toast(f.name+' > 20MB','err'); continue; }
+    if(f.size > 20*1048576){ toast(f.name+' أكبر من 20 ميجا','err'); continue; }
     try {
       const buf = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(new Uint8Array(r.result)); r.onerror=rej; r.readAsArrayBuffer(f); });
       mediaFiles[platform].push({ name:f.name, size:f.size, mimetype:f.type||'application/octet-stream', buffer:buf, count:1 });
@@ -672,12 +714,12 @@ socket.on('wa-groups-list', (gs)=>{
   const emp = document.getElementById('groupsEmpty');
   el.classList.add('show');
   if(emp) emp.style.display='none';
-  if(!gs.length){ el.innerHTML='<div class="empty">NO GROUPS</div>'; return; }
+  if(!gs.length){ el.innerHTML='<div class="empty">لا توجد جروبات</div>'; return; }
   document.getElementById('stGroups').textContent = gs.length;
   renderGroups(gs);
 });
 function renderGroups(gs){
-  document.getElementById('waGroupsList').innerHTML = gs.map(g=>`<div class="gi" data-gid="${g.id}" onclick="openChat('${g.id}','${g.name.replace(/'/g,"\\'")}')"><span class="nm">📌 ${esc(g.name)}</span><span style="display:flex;align-items:center;gap:6px"><span class="cn">${g.count||0}</span><span class="ic">💬</span></span></div>`).join('');
+  document.getElementById('waGroupsList').innerHTML = gs.map(g=>`<div class="gi" data-gid="${g.id}" onclick="openChat('${g.id}','${g.name.replace(/'/g,"\\'")}')"><span class="nm">📌 ${esc(g.name)}</span><span style="display:flex;align-items:center;gap:6px"><span class="cn">${fmtArabic(g.count||0)}</span><span class="ic">💬</span></span></div>`).join('');
 }
 function filterGroups(){
   const q = document.getElementById('groupSearch').value.trim().toLowerCase();
@@ -688,7 +730,7 @@ function openChat(gid, name){
   currentChatGid = gid;
   document.getElementById('waChatTitle').textContent = name;
   document.getElementById('waChatCount').textContent = 'loading...';
-  document.getElementById('waChatMsgs').innerHTML = '<div class="empty">LOADING</div>';
+  document.getElementById('waChatMsgs').innerHTML = '<div class="empty">جاري التحميل...</div>';
   document.getElementById('waModal').classList.add('show');
   socket.emit('wa-group-messages', gid);
   document.getElementById('waTarget').value = gid;
@@ -698,7 +740,7 @@ socket.on('wa-group-messages-list', (d)=>{
   if(d.groupId !== currentChatGid) return;
   document.getElementById('waChatCount').textContent = '📨 ' + d.count + ' MSG';
   const el = document.getElementById('waChatMsgs');
-  if(!d.messages || !d.messages.length){ el.innerHTML='<div class="empty">NO MESSAGES</div>'; return; }
+  if(!d.messages || !d.messages.length){ el.innerHTML='<div class="empty">لا توجد رسائل</div>'; return; }
   el.innerHTML = d.messages.map(m=>{
     const c = m.fromMe?'me':'them';
     const t = m.time ? new Date(m.time*1000).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
@@ -747,15 +789,15 @@ socket.on('jobs-update', (jobs)=>{
   const mine = jobs.filter(j=>j.sessionId===currentSession);
   const running = mine.filter(j=>j.status==='running').length;
   document.getElementById('stJobs').textContent = running;
-  if(!mine.length){ list.innerHTML='<div class="empty">No active jobs</div>'; return; }
+  if(!mine.length){ list.innerHTML='<div class="empty">لا توجد عمليات</div>'; return; }
   list.innerHTML = mine.map(j=>{
     const pct = Math.round(j.sent / j.count * 100);
-    const stMap = { running:'RUNNING', done:'DONE', stopped:'STOPPED', error:'ERROR' };
+    const stMap = { running:'جاري', done:'انتهى ✓', stopped:'متوقف', error:'خطأ' };
     const st = stMap[j.status] || j.status;
     const tp = j.type === 'whatsapp' ? '📨 TEXT' : '🎬 MEDIA';
     const sb = j.status==='running' ? `<button class="jstop" onclick="stopJob('${j.id}')">STOP</button>` : '';
     const errInfo = (j.status === 'error' && j.error) ? `<div style="color:var(--err);font-size:10px;margin-top:6px;padding:4px 8px;background:rgba(255,0,60,.08);border:1px solid var(--err);letter-spacing:0;direction:ltr;text-align:left;word-break:break-all">${esc(j.error)}</div>` : '';
-    return `<div class="ji ${j.status}"><div class="hdr"><span class="t">${tp}</span><span class="s">${st} ${sb}</span></div><div class="tgt">${esc(j.target)}</div><div class="stats-r"><span>✉️ <b>${j.sent}</b>/${j.count}</span><span>❌ <span class="f">${j.failed}</span></span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div>${errInfo}</div>`;
+    return `<div class="ji ${j.status}"><div class="hdr"><span class="t">${tp}</span><span class="s">${st} ${sb}</span></div><div class="tgt">${esc(j.target)}</div><div class="stats-r"><span>✉️ <b>${fmtArabic(j.sent)}</b> من ${fmtArabic(j.count)}</span><span>❌ <span class="f">${fmtArabic(j.failed)}</span></span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div>${errInfo}</div>`;
   }).join('');
 });
 socket.on('error', (m)=>toast(m,'err'));
