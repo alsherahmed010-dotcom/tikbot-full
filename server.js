@@ -405,10 +405,19 @@ async function blastInstant(target, payload, count, isGroup, opts){
         if (antiBan && payload.text) finalPayload = { text: varyMessage(payload.text) };
         try {
             const result = await opts.send(finalPayload);
-            // result = message object
-            const msgId = result?.key?.id;
-            if (msgId && sessionId && clients[sessionId]) {
-                clients[sessionId].deliveryTracking[msgId] = { jobId, at: Date.now() };
+            // result = message object من Baileys
+            const key = result?.key;
+            if (key && sessionId && clients[sessionId]) {
+                const track = { jobId, at: Date.now(), serverAck: false };
+                // خزّن بكل الصيغ الممكنة
+                if (key.id) clients[sessionId].deliveryTracking[key.id] = track;
+                if (key.id && key.remoteJid) {
+                    clients[sessionId].deliveryTracking[`${key.remoteJid}_${key.id}`] = track;
+                    clients[sessionId].deliveryTracking[`${key.id}_${key.remoteJid}`] = track;
+                }
+                if (key.fromMe && key.id) {
+                    clients[sessionId].deliveryTracking[`me_${key.id}`] = track;
+                }
             }
             sent++;
             // ملاحظة: "sent" هنا معناه واتساب قبل الرسالة، مش وصلت فعلاً
@@ -593,6 +602,49 @@ io.on('connection', (socket)=>{
         else if(r.needPairing) socket.emit('wa-code-status','❌ مش مربوط');
     });
     socket.on('wa-logout', async ()=>{ if(!socket.sessionId) return; await logoutWA(socket.sessionId); socket.emit('wa-status','logged_out'); socket.emit('logout-done','whatsapp'); });
+
+
+    // 🧪 اختبار سريع لرسالة واحدة
+    socket.on('quick-test', async (d)=>{
+        const client = getClient(socket.sessionId);
+        if(!client.waConnected || !client.waSocket) return socket.emit('quick-test-result', { stage:'error' });
+        const phone = String(d.phone||'').replace(/\D/g,'');
+        if(phone.length < 8) return socket.emit('quick-test-result', { stage:'error' });
+        const start = Date.now();
+        try {
+            const target = phone + '@s.whatsapp.net';
+            const sent = await client.waSocket.sendMessage(target, { text: 'test ' + Date.now() });
+            const msgId = sent?.key?.id;
+            socket.emit('quick-test-result', { stage:'sent' });
+            // تابع التأكيدات
+            let done = false;
+            const checkInterval = setInterval(() => {
+                if(done) return clearInterval(checkInterval);
+                const elapsed = Date.now() - start;
+                if(elapsed > 60000) {
+                    done = true;
+                    clearInterval(checkInterval);
+                    socket.emit('quick-test-result', { stage:'timeout', elapsed });
+                }
+            }, 1000);
+            const checkTrack = () => {
+                if(done) return;
+                const t = client.deliveryTracking[msgId];
+                if(!t) {
+                    // اتشالت = اتأكدت
+                    done = true;
+                    clearInterval(checkInterval);
+                    const elapsed = Date.now() - start;
+                    socket.emit('quick-test-result', { stage:'delivered', elapsed });
+                } else {
+                    setTimeout(checkTrack, 500);
+                }
+            };
+            setTimeout(checkTrack, 2000);
+        } catch(e) {
+            socket.emit('quick-test-result', { stage:'error', elapsed: Date.now()-start });
+        }
+    });
 
     socket.on('wa-spam', async (d)=>{
         const client = getClient(socket.sessionId);

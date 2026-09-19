@@ -270,6 +270,13 @@ textarea{min-height:80px;resize:vertical;line-height:1.5}
         <button class="b gray" onclick="waLogout()" style="margin-top:14px">🚪 LOGOUT</button>
       </div>
       <div class="msg" id="waCodeMsg"></div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line2)">
+        <label class="fld">🧪 اختبار سريع</label>
+        <input type="text" id="testPhone" placeholder="201234567890" style="margin-bottom:6px">
+        <button class="b gray" id="quickTestBtn" onclick="quickTest()">📤 ابعت رسالة اختبار</button>
+        <div id="testResult" style="font-size:11px;color:var(--gr3);text-align:center;margin-top:6px;min-height:16px"></div>
+      </div>
+
     </div>
 
     <div class="card">
@@ -501,6 +508,46 @@ socket.on('msg-confirmed', (d)=>{
   // حدّث Jobs مباشرة
   const jobs = document.querySelectorAll('.ji');
   // هنعتمد على jobs-update لتحديث العرض
+});
+
+
+// 🧪 اختبار سريع
+let quickTestMsgId = null;
+function quickTest(){
+  const phone = document.getElementById('testPhone').value.trim();
+  if(!phone) return toast('اكتب الرقم للاختبار','err');
+  const res = document.getElementById('testResult');
+  res.innerHTML = '⏳ جاري الإرسال...';
+  res.style.color = 'var(--wn)';
+  quickTestMsgId = 'test_' + Date.now();
+  socket.emit('quick-test', { phone, clientId: quickTestMsgId });
+}
+
+socket.on('quick-test-result', (d)=>{
+  const res = document.getElementById('testResult');
+  if(!res) return;
+  const elapsed = d.elapsed ? ` (${(d.elapsed/1000).toFixed(1)}ث)` : '';
+  if(d.stage === 'sent'){ res.innerHTML = '📤 اتبعتت — بانتظار التأكيد'; res.style.color = 'var(--wn)'; }
+  else if(d.stage === 'server'){ res.innerHTML = '📡 وصلت للسيرفر' + elapsed; res.style.color = 'var(--wn)'; }
+  else if(d.stage === 'delivered'){ res.innerHTML = '✅ وصلت للجهاز!' + elapsed; res.style.color = 'var(--gr)'; }
+  else if(d.stage === 'read'){ res.innerHTML = '👁️ اتقروا!' + elapsed; res.style.color = 'var(--gr)'; }
+  else if(d.stage === 'stuck'){ res.innerHTML = '⚠️ عالقة — الجلسة مريبة' + elapsed; res.style.color = 'var(--err)'; }
+  else if(d.stage === 'error'){ res.innerHTML = '❌ فشلت' + elapsed; res.style.color = 'var(--err)'; }
+  else if(d.stage === 'timeout'){ res.innerHTML = '⏱️ انتهى الوقت — مفيش تأكيد' + elapsed; res.style.color = 'var(--err)'; }
+});
+
+
+// 🎯 تتبع مراحل التسليم لكل job
+const jobStages = {};
+socket.on('msg-status', (d) => {
+  if (!d.jobId) return;
+  if (!jobStages[d.jobId]) jobStages[d.jobId] = { server: 0, delivered: 0, read: 0, stuck: 0, error: 0 };
+  const s = jobStages[d.jobId];
+  if (d.stage === 'server') s.server++;
+  else if (d.stage === 'delivered') s.delivered++;
+  else if (d.stage === 'read') s.read++;
+  else if (d.stage === 'stuck') s.stuck++;
+  else if (d.stage === 'error') s.error++;
 });
 
 function toast(msg, type='ok'){
