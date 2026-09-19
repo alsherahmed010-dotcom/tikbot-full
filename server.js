@@ -27,17 +27,66 @@ if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true }
 
 const clients = {}, allJobs = {}, msgCache = {}, reconnectTimers = {}, jobPayloads = {};
 
-// 🌐 بروكسيهات
 let proxies = [];
 try { if (fs.existsSync(PROXIES_FILE)) proxies = JSON.parse(fs.readFileSync(PROXIES_FILE, 'utf8')); } catch(e){}
 function saveProxies(){ try { fs.writeFileSync(PROXIES_FILE, JSON.stringify(proxies)); } catch(e){} }
-function getRandomProxy(){ if(!proxies.length) return null; return proxies[Math.floor(Math.random()*proxies.length)]; }
+
+// ═══════════ 🔍 اختبار البروكسي السريع ═══════════
+async function testProxy(proxyUrl, timeoutMs = 8000) {
+    return new Promise((resolve) => {
+        const startTime = Date.now();
+        let resolved = false;
+        const done = (ok, reason) => {
+            if (resolved) return;
+            resolved = true;
+            resolve({ ok, ms: Date.now() - startTime, reason, url: proxyUrl });
+        };
+        setTimeout(() => done(false, 'timeout'), timeoutMs);
+
+        try {
+            let agent;
+            if (proxyUrl.startsWith('socks')) agent = new SocksProxyAgent(proxyUrl);
+            else agent = new HttpsProxyAgent(proxyUrl);
+
+            const testUrl = 'https://web.whatsapp.com/favicon.ico';
+            const req = (testUrl.startsWith('https') ? require('https') : require('http')).get(testUrl, { agent, timeout: timeoutMs }, (res) => {
+                res.resume();
+                if (res.statusCode >= 200 && res.statusCode < 500) done(true, 'ok');
+                else done(false, 'status_' + res.statusCode);
+            });
+            req.on('error', (e) => done(false, e.message));
+            req.on('timeout', () => { req.destroy(); done(false, 'req_timeout'); });
+            req.setTimeout(timeoutMs);
+        } catch(e) {
+            done(false, e.message);
+        }
+    });
+}
+
+// 🌐 اختبار كل البروكسيات وتصفية الشغال
+async function getWorkingProxy() {
+    if (!proxies.length) return null;
+    // اختبر البروكسيات بالتوازي — أول واحد ينجح
+    const results = await Promise.all(proxies.map(async (p) => {
+        if (!p.active) return null;
+        const r = await testProxy(p.url, 6000);
+        if (r.ok) console.log('✅ Proxy OK:', p.url, r.ms + 'ms');
+        else console.log('❌ Proxy FAIL:', p.url, r.reason);
+        return r.ok ? { ...p, ms: r.ms } : null;
+    }));
+    const working = results.filter(Boolean);
+    if (!working.length) return null;
+    // رتب حسب السرعة
+    working.sort((a, b) => a.ms - b.ms);
+    return working[0];
+}
+
 function getProxyAgent(proxyUrl){
     if(!proxyUrl) return undefined;
     try {
         if(proxyUrl.startsWith('socks')) return new SocksProxyAgent(proxyUrl);
         return new HttpsProxyAgent(proxyUrl);
-    } catch(e) { console.log('proxy err:', e.message); return undefined; }
+    } catch(e) { return undefined; }
 }
 
 function getClient(sid) {
@@ -45,7 +94,7 @@ function getClient(sid) {
         waSocket:null, waConnected:false, waAuthState:null,
         waNeedsPairing:false, waPairingCode:null, waStarting:false,
         activeJobs:{}, socketIds:new Set(), contactNames:{},
-        sentCount: 0, failedCount: 0
+        sentCount: 0, failedCount: 0, currentProxy: null
     };
     return clients[sid];
 }
@@ -60,7 +109,6 @@ function saveMsgs(sid){ try{ fs.writeFileSync(getMsgFile(sid), JSON.stringify(ms
 function loadMsgs(sid){ try{ const f=getMsgFile(sid); if(fs.existsSync(f)) msgCache[sid]=JSON.parse(fs.readFileSync(f,'utf8')); }catch(e){} }
 function broadcastJobs(){ io.emit('jobs-update', Object.values(allJobs)); }
 function emit(sid, ev, data){ const c=clients[sid]; if(!c) return; for(const s of c.socketIds) io.to(s).emit(ev,data); }
-function emitGlobal(ev, data){ io.emit(ev, data); }
 
 function extractText(m){
     if(!m?.message) return '[media]';
@@ -86,22 +134,16 @@ function addMsg(sid, jid, o){
 }
 function counts(sid){ const c=msgCache[sid]||{}; return Object.keys(c).map(g=>({id:g,count:c[g].length})); }
 
-// 🛡️ توليد رسائل متنوعة لتجنب اكتشاف السبام
 function varyMessage(text){
-    const zw = ['\u200B','\u200C','\u200D','\uFEFF']; // Zero-width chars
+    const zw = ['\u200B','\u200C','\u200D','\uFEFF'];
     const r = Math.floor(Math.random() * 3);
     if(r === 0) return text;
     if(r === 1) return zw[Math.floor(Math.random()*zw.length)] + text;
-    if(r === 2) return text + zw[Math.floor(Math.random()*zw.length)];
-    return text;
+    return text + zw[Math.floor(Math.random()*zw.length)];
 }
+function randomDelay(baseMs){ return baseMs + Math.floor(Math.random() * baseMs); }
 
-// 🎭 تأخير عشوائي
-function randomDelay(baseMs){
-    return baseMs + Math.floor(Math.random() * baseMs);
-}
-
-// 🌐 إنشاء WA socket
+// 🌐 إنشاء WA socket مع اختبار بروكسي ذكي
 async function startWA(sid, opts={}){
     const client = getClient(sid);
     if(client.waStarting && !opts.force){ while(client.waStarting) await new Promise(r=>setTimeout(r,200)); return client.waSocket; }
@@ -116,13 +158,23 @@ async function startWA(sid, opts={}){
             try{ client.waSocket.end(undefined); }catch(e){}
         }
 
-        // 🌐 استخدم بروكسي إذا متوفر
-        let agent;
+        // 🌐 اختبار البروكسي — لو شغال استخدمه، لو علق تجاهله
+        let agent, proxyUsed = null;
         if(proxies.length && opts.useProxy !== false){
-            const proxy = getRandomProxy();
-            if(proxy){
-                agent = getProxyAgent(proxy.url);
-                console.log('🌐 Using proxy:', proxy.url, 'for', sid);
+            emit(sid, 'wa-code-status', '🌐 جاري اختبار البروكسيات...');
+            console.log('🌐 Testing', proxies.length, 'proxies...');
+            const working = await getWorkingProxy();
+            if(working){
+                agent = getProxyAgent(working.url);
+                proxyUsed = working.url;
+                client.currentProxy = working.url;
+                console.log('✅ Using proxy:', working.url, '(' + working.ms + 'ms)');
+                emit(sid, 'proxy-status', { url: working.url, ms: working.ms, ok: true });
+            } else {
+                client.currentProxy = null;
+                console.log('⚠️ No working proxies — using direct connection');
+                emit(sid, 'proxy-status', { ok: false, msg: 'البروكسيات مش شغالة — استخدام اتصال مباشر' });
+                emit(sid, 'wa-code-status', '⚠️ البروكسيات فشلت — اتصال مباشر');
             }
         }
 
@@ -131,10 +183,10 @@ async function startWA(sid, opts={}){
             logger: pino({ level:'silent' }),
             browser:["Ubuntu","Chrome","20.0.0"],
             syncFullHistory:true,
-            connectTimeoutMs:300000,
-            defaultQueryTimeoutMs:300000,
-            keepAliveIntervalMs:25000,
-            retryRequestDelayMs:2000,
+            connectTimeoutMs: 600000,          // ⏱️ 10 دقايق
+            defaultQueryTimeoutMs: 300000,     // 5 دقايق
+            keepAliveIntervalMs: 30000,
+            retryRequestDelayMs: 3000,
             generateHighQualityLinkPreview:false,
             markOnlineOnConnect:false
         };
@@ -171,10 +223,11 @@ async function startWA(sid, opts={}){
         sock.ev.on('connection.update', u=>{
             const { connection, lastDisconnect } = u;
             const code = lastDisconnect?.error?.output?.statusCode;
-            console.log('📡 WA:', sid, connection, 'code:', code);
+            console.log('📡 WA:', sid, connection, 'code:', code, 'proxy:', proxyUsed || 'none');
             if(connection==='open'){
                 client.waConnected = true; client.waNeedsPairing = false; client.waPairingCode = null;
                 emit(sid,'wa-status','connected');
+                emit(sid, 'proxy-status', proxyUsed ? { url: proxyUsed, ok: true, active: true } : { ok: true, direct: true, msg: 'اتصال مباشر' });
                 setTimeout(()=>resumeJobs(sid).catch(()=>{}), 2000);
             } else if(connection==='close'){
                 client.waConnected = false;
@@ -186,7 +239,7 @@ async function startWA(sid, opts={}){
                 if(code===440){ client.waSocket=null; emit(sid,'wa-status','disconnected'); return; }
                 client.waSocket = null;
                 emit(sid,'wa-status','reconnecting');
-                const delay = (code===515||code===DisconnectReason.restartRequired)?2000:5000;
+                const delay = (code===515||code===DisconnectReason.restartRequired)?3000:7000;
                 if(reconnectTimers[sid]) clearTimeout(reconnectTimers[sid]);
                 reconnectTimers[sid] = setTimeout(()=>{ delete reconnectTimers[sid]; startWA(sid,{force:true}).catch(()=>{}); }, delay);
             } else if(connection==='connecting') emit(sid,'wa-status','connecting');
@@ -207,18 +260,36 @@ async function requestCode(sid, phone){
     const authDir = path.join(getSessionDir(sid), 'wa_auth');
     if(fs.existsSync(authDir)) try{ fs.rmSync(authDir,{recursive:true,force:true}); }catch(e){}
     await new Promise(r=>setTimeout(r,800));
+
     try { await startWA(sid, { force:true }); } catch(e){ return { error:'init: '+e.message }; }
+
+    // ⏱️ استنى لحد 90 ثانية للسوكيت
     let t = 0;
-    while(!client.waSocket && t < 30){ await new Promise(r=>setTimeout(r,500)); t++; }
-    if(!client.waSocket) return { error:'timeout' };
-    await new Promise(r=>setTimeout(r,2500));
+    while(!client.waSocket && t < 180){ await new Promise(r=>setTimeout(r,500)); t++; }
+    if(!client.waSocket) return { error:'Socket timeout — جرب تاني' };
+
+    // ⏱️ استنى 5 ثواني عشان handshake
+    await new Promise(r=>setTimeout(r,5000));
+
     try {
         const code = await client.waSocket.requestPairingCode(clean);
         client.waPairingCode = code.match(/.{1,4}/g).join('-');
         client.waNeedsPairing = true;
         console.log('🔑 Code:', client.waPairingCode);
         return { code: client.waPairingCode };
-    } catch(e) { return { error:e.message }; }
+    } catch(e) {
+        console.log('🔑 pairing error:', e.message);
+        // محاولة تانية
+        await new Promise(r=>setTimeout(r,3000));
+        try {
+            const code = await client.waSocket.requestPairingCode(clean);
+            client.waPairingCode = code.match(/.{1,4}/g).join('-');
+            client.waNeedsPairing = true;
+            return { code: client.waPairingCode };
+        } catch(e2) {
+            return { error:'فشل: ' + e2.message };
+        }
+    }
 }
 
 async function manualReconn(sid){
@@ -243,27 +314,20 @@ async function logoutWA(sid){
     } catch(e){ return { error:e.message }; }
 }
 
-// 🚀 إرسال فوري مع حماية
 async function blastInstant(target, payload, count, isGroup, opts){
     let sent = 0, failed = 0;
     const promises = [];
     const antiBan = opts.antiBan !== false;
     for(let i = 0; i < count; i++){
         if(opts.cancelled && opts.cancelled()) break;
-        // حماية: variant الرسالة
         let finalPayload = payload;
-        if(antiBan && payload.text){
-            finalPayload = { text: varyMessage(payload.text) };
-        }
+        if(antiBan && payload.text) finalPayload = { text: varyMessage(payload.text) };
         promises.push(
             opts.send(finalPayload)
                 .then(()=>{ sent++; if(opts.update) opts.update(sent, failed); })
                 .catch(()=>{ sent++; failed++; if(opts.update) opts.update(sent, failed); })
         );
-        // حماية: تأخير بسيط عشوائي كل 20 رسالة
-        if(antiBan && i > 0 && i % 20 === 0){
-            await new Promise(r => setTimeout(r, randomDelay(200)));
-        }
+        if(antiBan && i > 0 && i % 20 === 0) await new Promise(r => setTimeout(r, randomDelay(200)));
     }
     await Promise.all(promises);
     return { sent, failed };
@@ -300,10 +364,9 @@ async function resumeJobs(sid){
     }
 }
 
-// ═══════════ PROXY API ═══════════
-app.get('/api/proxies', (req, res) => {
-    res.json({ proxies, count: proxies.length });
-});
+// ═══════════ PROXY APIs ═══════════
+app.get('/api/proxies', (req, res) => { res.json({ proxies, count: proxies.length }); });
+
 app.post('/api/proxies/add', (req, res) => {
     try {
         const url = String(req.body.url||'').trim();
@@ -329,6 +392,30 @@ app.post('/api/proxies/clear', (req, res) => {
     saveProxies();
     io.emit('proxies-update', { proxies, count: proxies.length });
     res.json({ success:true });
+});
+
+// 🔍 اختبار بروكسي واحد
+app.post('/api/proxies/test', async (req, res) => {
+    try {
+        const url = String(req.body.url||'').trim();
+        if(!url) return res.json({ error:'مفيش رابط' });
+        const r = await testProxy(url, 10000);
+        res.json(r);
+    } catch(e){ res.status(500).json({ error:e.message }); }
+});
+
+// 🔍 اختبار كل البروكسيات
+app.post('/api/proxies/test-all', async (req, res) => {
+    try {
+        const results = await Promise.all(proxies.map(async (p) => {
+            const r = await testProxy(p.url, 8000);
+            p.lastTest = { ok: r.ok, ms: r.ms, reason: r.reason, at: Date.now() };
+            return { url: p.url, ...r };
+        }));
+        saveProxies();
+        io.emit('proxies-update', { proxies, count: proxies.length });
+        res.json({ results });
+    } catch(e){ res.status(500).json({ error:e.message }); }
 });
 
 app.post('/api/wipe-sessions', async (req, res) => {
@@ -366,13 +453,14 @@ io.on('connection', (socket)=>{
         else socket.emit('wa-status','disconnected');
         socket.emit('wa-cache-update', counts(sid));
         socket.emit('stats-update', { sent: c.sentCount, failed: c.failedCount });
+        if(c.currentProxy) socket.emit('proxy-status', { url: c.currentProxy, ok: true, active: true });
         if(c.waNeedsPairing && c.waPairingCode && !c.waConnected){ socket.emit('wa-code', c.waPairingCode); socket.emit('wa-code-status','🔑 الكود جاهز'); }
     });
     socket.on('disconnect', ()=>{ if(socket.sessionId && clients[socket.sessionId]) clients[socket.sessionId].socketIds.delete(socket.id); });
 
     socket.on('wa-connect', async (phone)=>{
         if(!socket.sessionId) return;
-        socket.emit('wa-code-status','⏳ جاري طلب الكود...');
+        socket.emit('wa-code-status','⏳ جاري التحضير...');
         const r = await requestCode(socket.sessionId, phone);
         if(r.code){ socket.emit('wa-code', r.code); socket.emit('wa-code-status','✅ أدخل الكود في واتساب'); }
         else socket.emit('wa-code-status','❌ '+r.error);
@@ -417,7 +505,6 @@ io.on('connection', (socket)=>{
                 emit(socket.sessionId, 'wa-live', { jobId, sent:s, failed:f, count:d.count, delta:1 });
             }
         });
-        // 🆕 حدّث العدادات في client
         client.sentCount += allJobs[jobId].sent;
         client.failedCount += allJobs[jobId].failed;
         emit(socket.sessionId, 'stats-update', { sent: client.sentCount, failed: client.failedCount });

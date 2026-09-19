@@ -544,6 +544,22 @@ function sendMedia(platform){
   toast('LAUNCHING...');
 }
 
+// PROXY STATUS
+socket.on('proxy-status', (d)=>{
+  const badge = document.getElementById('proxyBadge');
+  if(d.ok && d.active){
+    badge.textContent = '✅ ACTIVE';
+    badge.style.color = 'var(--gr)';
+    badge.title = d.url;
+  } else if(d.direct){
+    badge.textContent = '🟢 DIRECT';
+    badge.style.color = 'var(--gr)';
+  } else if(!d.ok){
+    badge.textContent = '⚠️ OFFLINE';
+    badge.style.color = 'var(--wn)';
+  }
+});
+
 // PROXIES
 socket.on('proxies-update', (d)=>{
   allProxies = d.proxies || [];
