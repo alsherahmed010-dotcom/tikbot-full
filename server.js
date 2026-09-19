@@ -94,7 +94,8 @@ function getClient(sid) {
         waSocket:null, waConnected:false, waAuthState:null,
         waNeedsPairing:false, waPairingCode:null, waStarting:false,
         activeJobs:{}, socketIds:new Set(), contactNames:{},
-        sentCount: 0, failedCount: 0, currentProxy: null
+        sentCount: 0, failedCount: 0, currentProxy: null,
+        waBlocked: false, blockReason: null
     };
     return clients[sid];
 }
@@ -226,11 +227,36 @@ async function startWA(sid, opts={}){
             console.log('📡 WA:', sid, connection, 'code:', code, 'proxy:', proxyUsed || 'none');
             if(connection==='open'){
                 client.waConnected = true; client.waNeedsPairing = false; client.waPairingCode = null;
+                client.waBlocked = false; client.blockReason = null;
                 emit(sid,'wa-status','connected');
                 emit(sid, 'proxy-status', proxyUsed ? { url: proxyUsed, ok: true, active: true } : { ok: true, direct: true, msg: 'اتصال مباشر' });
                 setTimeout(()=>resumeJobs(sid).catch(()=>{}), 2000);
             } else if(connection==='close'){
                 client.waConnected = false;
+
+                // 🚨 403 = banned, 428 = throttled
+                if(code === 403){
+                    client.waBlocked = true;
+                    client.blockReason = 'رقمك محظور من واتساب (403)';
+                    emit(sid, 'wa-blocked', { reason: client.blockReason, code: 403 });
+                    emit(sid,'wa-status','banned');
+                    return;
+                }
+                if(code === 428){
+                    client.waBlocked = true;
+                    client.blockReason = 'واتساب أوقف الجلسة مؤقتاً (428 - Rate Limit)';
+                    emit(sid, 'wa-blocked', { reason: client.blockReason, code: 428 });
+                    emit(sid,'wa-status','throttled');
+                    return;
+                }
+                if(code === 429){
+                    client.waBlocked = true;
+                    client.blockReason = 'تم تجاوز الحد المسموح (429 - Too Many Requests)';
+                    emit(sid, 'wa-blocked', { reason: client.blockReason, code: 429 });
+                    emit(sid,'wa-status','throttled');
+                    return;
+                }
+
                 if(code===DisconnectReason.loggedOut || code===401){
                     client.waSocket=null; client.waAuthState=null; client.waNeedsPairing=false; client.waPairingCode=null;
                     if(fs.existsSync(authDir)) try{ fs.rmSync(authDir,{recursive:true,force:true}); }catch(e){}
@@ -296,6 +322,8 @@ async function manualReconn(sid){
     const client = getClient(sid);
     if(!client.waAuthState?.creds?.registered) return { needPairing:true };
     client.waConnected = false;
+    client.waBlocked = false;
+    client.blockReason = null;
     await startWA(sid, { force:true });
     return { ok:true };
 }
@@ -316,21 +344,58 @@ async function logoutWA(sid){
 
 async function blastInstant(target, payload, count, isGroup, opts){
     let sent = 0, failed = 0;
+    let lastError = null;
+    let consecutiveFails = 0;
+    let aborted = false;
     const promises = [];
     const antiBan = opts.antiBan !== false;
+    const sessionId = opts.sessionId;
+
     for(let i = 0; i < count; i++){
-        if(opts.cancelled && opts.cancelled()) break;
+        if(opts.cancelled && opts.cancelled()) { aborted = true; break; }
+        // لو الحساب اتحظر، وقف فوراً
+        if(sessionId && clients[sessionId]?.waBlocked) { aborted = true; break; }
+
         let finalPayload = payload;
         if(antiBan && payload.text) finalPayload = { text: varyMessage(payload.text) };
+
         promises.push(
             opts.send(finalPayload)
-                .then(()=>{ sent++; if(opts.update) opts.update(sent, failed); })
-                .catch(()=>{ sent++; failed++; if(opts.update) opts.update(sent, failed); })
+                .then(()=>{
+                    sent++;
+                    consecutiveFails = 0;
+                    if(opts.update) opts.update(sent, failed);
+                })
+                .catch((err)=>{
+                    sent++;
+                    failed++;
+                    consecutiveFails++;
+                    const em = String(err?.message || err || 'unknown');
+                    lastError = em;
+                    if(opts.update) opts.update(sent, failed);
+
+                    // 🔴 كشف الحظر من رسالة الخطأ
+                    if(sessionId && !clients[sessionId]?.waBlocked){
+                        let blockReason = null;
+                        if(em.includes('403') || em.toLowerCase().includes('forbidden')) blockReason = 'الحساب محظور (403)';
+                        else if(em.includes('428')) blockReason = 'الجلسة موقوفة مؤقتاً (428)';
+                        else if(em.includes('429') || em.toLowerCase().includes('too many')) blockReason = 'تجاوزت الحد (429)';
+                        else if(em.toLowerCase().includes('banned')) blockReason = 'الحساب محظور';
+                        else if(consecutiveFails >= 10) blockReason = 'فشل ' + consecutiveFails + ' رسائل متتالية';
+                        if(blockReason){
+                            clients[sessionId].waBlocked = true;
+                            clients[sessionId].blockReason = blockReason;
+                            emit(sessionId, 'wa-blocked', { reason: blockReason, code: 'send_fail' });
+                            aborted = true;
+                        }
+                    }
+                })
         );
         if(antiBan && i > 0 && i % 20 === 0) await new Promise(r => setTimeout(r, randomDelay(200)));
+        if(aborted) break;
     }
     await Promise.all(promises);
-    return { sent, failed };
+    return { sent, failed, aborted, lastError };
 }
 
 async function resumeJobs(sid){
@@ -418,6 +483,18 @@ app.post('/api/proxies/test-all', async (req, res) => {
     } catch(e){ res.status(500).json({ error:e.message }); }
 });
 
+app.get('/api/status/:sid', (req, res) => {
+    const c = clients[req.params.sid];
+    if(!c) return res.json({ connected: false, blocked: false });
+    res.json({
+        connected: c.waConnected,
+        blocked: c.waBlocked || false,
+        blockReason: c.blockReason || null,
+        sent: c.sentCount,
+        failed: c.failedCount
+    });
+});
+
 app.post('/api/wipe-sessions', async (req, res) => {
     try {
         for(const sid in clients){
@@ -495,7 +572,8 @@ io.on('connection', (socket)=>{
         if(!jobPayloads[socket.sessionId]) jobPayloads[socket.sessionId] = {};
         jobPayloads[socket.sessionId][jobId] = { type:'text', message:d.message, target, isGroup, count:d.count };
         broadcastJobs();
-        await blastInstant(target, { text: d.message }, d.count, isGroup, {
+        const blastRes = await blastInstant(target, { text: d.message }, d.count, isGroup, {
+            sessionId: socket.sessionId,
             cancelled: () => client.activeJobs[jobId]?.cancel,
             send: (p) => client.waSocket.sendMessage(target, p),
             update: (s, f) => {
@@ -508,7 +586,8 @@ io.on('connection', (socket)=>{
         client.sentCount += allJobs[jobId].sent;
         client.failedCount += allJobs[jobId].failed;
         emit(socket.sessionId, 'stats-update', { sent: client.sentCount, failed: client.failedCount });
-        if(allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
+        if(blastRes?.aborted) allJobs[jobId].status = 'error';
+        else if(allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
         broadcastJobs();
         delete client.activeJobs[jobId];
         if(jobPayloads[socket.sessionId]) delete jobPayloads[socket.sessionId][jobId];

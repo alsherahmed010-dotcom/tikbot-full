@@ -205,6 +205,25 @@ textarea{min-height:80px;resize:vertical;line-height:1.5}
 /* TOAST */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--card);border:1.5px solid var(--gr);color:var(--gr);padding:14px 22px;font-size:13px;font-weight:900;z-index:2000;transition:.35s;opacity:0;pointer-events:none;max-width:90vw;text-align:center;box-shadow:0 0 40px var(--gr);letter-spacing:1px;text-transform:uppercase}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* BLOCK MODAL */
+.block-modal{position:fixed;inset:0;background:rgba(0,0,0,.95);backdrop-filter:blur(15px);z-index:3000;display:none;align-items:center;justify-content:center;padding:20px}
+.block-modal.show{display:flex;animation:fadeIn .3s}
+.block-box{max-width:500px;width:100%;background:var(--card);border:3px solid var(--err);padding:32px 24px;text-align:center;box-shadow:0 0 80px var(--err),inset 0 0 60px rgba(255,0,60,.1);position:relative;animation:shake .5s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
+.block-box::before,.block-box::after{content:'';position:absolute;left:0;right:0;height:3px;background:repeating-linear-gradient(90deg,var(--err) 0,var(--err) 10px,transparent 10px,transparent 20px);animation:stripe 1s linear infinite}
+@keyframes stripe{from{background-position:0 0}to{background-position:20px 0}}
+.block-box::before{top:0}
+.block-box::after{bottom:0}
+.block-box .big-ic{font-size:64px;margin-bottom:16px;display:block;animation:pulse 1s infinite}
+.block-box .ttl{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;color:var(--err);letter-spacing:5px;margin-bottom:12px;text-shadow:0 0 20px var(--err)}
+.block-box .reason{background:rgba(255,0,60,.1);border:1px solid var(--err);padding:14px;color:#ff5c85;font-size:14px;font-weight:700;margin:16px 0;line-height:1.6;word-wrap:break-word;text-align:center;direction:rtl}
+.block-box .info{font-size:12px;color:var(--gr3);line-height:1.8;margin-bottom:20px;text-align:right}
+.block-box .info b{color:var(--gr)}
+.block-box button{background:var(--err);color:#fff;border:none;padding:14px 28px;font-family:'Orbitron',sans-serif;font-weight:900;font-size:13px;cursor:pointer;letter-spacing:3px;margin:6px 4px;box-shadow:0 0 20px var(--err)}
+.block-box button.gray{background:transparent;border:1px solid var(--gr3);color:var(--gr3);box-shadow:none}
+.block-box button:hover{transform:translateY(-2px);box-shadow:0 0 30px var(--err)}
+.toast.err-toast{border-color:var(--err);color:var(--err);box-shadow:0 0 40px var(--err)}
 </style>
 </head>
 <body>
@@ -330,6 +349,24 @@ textarea{min-height:80px;resize:vertical;line-height:1.5}
   </div>
 </div>
 
+
+<div class="block-modal" id="blockModal">
+  <div class="block-box">
+    <span class="big-ic">🚫</span>
+    <div class="ttl">BLOCKED</div>
+    <div class="reason" id="blockReason">الحساب محظور من واتساب</div>
+    <div class="info">
+      <b>الحل:</b><br>
+      1. أوقف الأداة فوراً<br>
+      2. سجّل خروج واضح الجلسة<br>
+      3. انتظر 24-48 ساعة<br>
+      4. جرب رقم تاني أو انتظر
+    </div>
+    <button onclick="closeBlockModal()">✕ فهمت</button>
+    <button class="gray" onclick="wipeSessions()">🗑️ امسح الجلسات</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -373,6 +410,45 @@ let currentSession = '', currentChatGid = null, allGroups = [], allProxies = [];
 const mediaFiles = { wa:[] };
 const speedState = { wa: 999 };
 let stats = { sent: 0, failed: 0 };
+
+
+// 🚨 BLOCK DETECTED
+socket.on('wa-blocked', (d)=>{
+  document.getElementById('blockReason').textContent = d.reason || 'الحساب محظور';
+  document.getElementById('blockModal').classList.add('show');
+  // صوت تنبيه (لو الأصوات شغالة)
+  try {
+    if(window.audioCtx === undefined) window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = window.audioCtx;
+    if(ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    [300, 200, 150].forEach((f, i)=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0, now + i*0.2);
+      gain.gain.linearRampToValueAtTime(0.15, now + i*0.2 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i*0.2 + 0.3);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now + i*0.2);
+      osc.stop(now + i*0.2 + 0.3);
+    });
+  } catch(e){}
+});
+function closeBlockModal(){
+  document.getElementById('blockModal').classList.remove('show');
+}
+
+// عرض الحالة المحظورة
+socket.on('wa-status', (s)=>{
+  if(s === 'banned' || s === 'throttled'){
+    const st = document.getElementById('sbStatus');
+    if(st){ st.textContent = s === 'banned' ? 'BANNED ❌' : 'THROTTLED ⚠️'; st.style.color = 'var(--err)'; }
+    const badge = document.getElementById('waBadge');
+    if(badge){ badge.textContent = s === 'banned' ? 'BANNED' : 'THROTTLED'; badge.className = 'bdg'; badge.style.borderColor = 'var(--err)'; badge.style.color = 'var(--err)'; }
+  }
+});
 
 function toast(msg, type='ok'){
   const t = document.getElementById('toast');
@@ -678,7 +754,8 @@ socket.on('jobs-update', (jobs)=>{
     const st = stMap[j.status] || j.status;
     const tp = j.type === 'whatsapp' ? '📨 TEXT' : '🎬 MEDIA';
     const sb = j.status==='running' ? `<button class="jstop" onclick="stopJob('${j.id}')">STOP</button>` : '';
-    return `<div class="ji ${j.status}"><div class="hdr"><span class="t">${tp}</span><span class="s">${st} ${sb}</span></div><div class="tgt">${esc(j.target)}</div><div class="stats-r"><span>✉️ <b>${j.sent}</b>/${j.count}</span><span>❌ <span class="f">${j.failed}</span></span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div></div>`;
+    const errInfo = (j.status === 'error' && j.error) ? `<div style="color:var(--err);font-size:10px;margin-top:6px;padding:4px 8px;background:rgba(255,0,60,.08);border:1px solid var(--err);letter-spacing:0;direction:ltr;text-align:left;word-break:break-all">${esc(j.error)}</div>` : '';
+    return `<div class="ji ${j.status}"><div class="hdr"><span class="t">${tp}</span><span class="s">${st} ${sb}</span></div><div class="tgt">${esc(j.target)}</div><div class="stats-r"><span>✉️ <b>${j.sent}</b>/${j.count}</span><span>❌ <span class="f">${j.failed}</span></span><span>${pct}%</span></div><div class="pg"><div class="pf" style="width:${pct}%"></div></div>${errInfo}</div>`;
   }).join('');
 });
 socket.on('error', (m)=>toast(m,'err'));
