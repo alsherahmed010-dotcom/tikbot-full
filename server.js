@@ -95,7 +95,8 @@ function getClient(sid) {
         waNeedsPairing:false, waPairingCode:null, waStarting:false,
         activeJobs:{}, socketIds:new Set(), contactNames:{},
         sentCount: 0, failedCount: 0, currentProxy: null,
-        waBlocked: false, blockReason: null
+        waBlocked: false, blockReason: null,
+        deliveryTracking: {}  // { msgId: { jobId, at } }
     };
     return clients[sid];
 }
@@ -217,6 +218,42 @@ async function startWA(sid, opts={}){
             }
             if(contacts) for(const c of contacts) if(c.id && (c.notify||c.name)) client.contactNames[c.id]=c.notify||c.name;
             if(ch){ saveMsgs(sid); emit(sid,'wa-cache-update',counts(sid)); }
+        });
+
+        // ✅ استقبال تأكيدات التسليم الفعلية
+        sock.ev.on('message-receipt.update', (receipts) => {
+            try {
+                for (const r of receipts) {
+                    const msgId = r.key?.id;
+                    if (!msgId) continue;
+                    const track = client.deliveryTracking[msgId];
+                    if (track) {
+                        // تأكيد التسليم الفعلي
+                        if (r.receipt?.receiptTimestamp || r.receipt?.readTimestamp) {
+                            emit(sid, 'msg-confirmed', { jobId: track.jobId, msgId });
+                        }
+                        delete client.deliveryTracking[msgId];
+                    }
+                }
+            } catch(e) {}
+        });
+        // تحديثات الرسائل (تأكيد إضافي)
+        sock.ev.on('messages.update', (updates) => {
+            try {
+                for (const u of updates) {
+                    const msgId = u.key?.id;
+                    if (!msgId) continue;
+                    const track = client.deliveryTracking[msgId];
+                    if (track) {
+                        const status = u.update?.status;
+                        // 3 = DELIVERY_ACK, 4 = READ, 5 = PLAYED
+                        if (status >= 3) {
+                            emit(sid, 'msg-confirmed', { jobId: track.jobId, msgId });
+                            delete client.deliveryTracking[msgId];
+                        }
+                    }
+                }
+            } catch(e) {}
         });
         sock.ev.on('contacts.update', cs=>{ for(const c of cs) if(c.id && (c.notify||c.name)) client.contactNames[c.id]=c.notify||c.name; });
         sock.ev.on('contacts.set', ({ contacts })=>{ for(const c of contacts) if(c.id && (c.notify||c.name)) client.contactNames[c.id]=c.notify||c.name; });
@@ -342,38 +379,63 @@ async function logoutWA(sid){
     } catch(e){ return { error:e.message }; }
 }
 
+// ⚡ blastInstant — rate-limited + delivery tracking
 async function blastInstant(target, payload, count, isGroup, opts){
-    let sent = 0, failed = 0;
+    let sent = 0, failed = 0, confirmed = 0;
     let lastError = null;
     const antiBan = opts.antiBan !== false;
     const sessionId = opts.sessionId;
-    // ⚡ دفعات كبيرة — أي رقم يشتغل بدون انهيار
-    const CHUNK = 2000;
+    const jobId = opts.jobId;
+    const speed = Math.max(1, parseInt(opts.speed) || 999); // رسائل/ثانية
+    const isUnlimited = speed >= 999;
+
+    // Delay لكل رسالة حسب السرعة
+    // 2/s = 500ms | 3/s = 333ms | 10/s = 100ms | MAX = 0ms
+    const perMsgDelay = isUnlimited ? 0 : Math.max(0, Math.floor(1000 / speed));
+
+    // Rate limiter بسيط: نستخدم semaphore بـ concurrency صغير
+    const CONCURRENCY = isUnlimited ? 2000 : Math.max(1, Math.min(speed, 20));
 
     let processed = 0;
+    const sendOne = async () => {
+        if (opts.cancelled && opts.cancelled()) return;
+        if (processed >= count) return;
+        processed++;
+        let finalPayload = payload;
+        if (antiBan && payload.text) finalPayload = { text: varyMessage(payload.text) };
+        try {
+            const result = await opts.send(finalPayload);
+            // result = message object
+            const msgId = result?.key?.id;
+            if (msgId && sessionId && clients[sessionId]) {
+                clients[sessionId].deliveryTracking[msgId] = { jobId, at: Date.now() };
+            }
+            sent++;
+            // ملاحظة: "sent" هنا معناه واتساب قبل الرسالة، مش وصلت فعلاً
+            // التأكيد الفعلي يجي من message-receipt.update
+        } catch (err) {
+            failed++;
+            lastError = String(err?.message || err || 'unknown');
+        }
+        if (opts.update) opts.update(sent, failed, confirmed);
+        if (perMsgDelay > 0 && !isUnlimited) {
+            await new Promise(r => setTimeout(r, perMsgDelay));
+        }
+    };
+
+    // دفعات صغيرة (chunks) — تمنع انهيار المتصفح
     while (processed < count) {
         if (opts.cancelled && opts.cancelled()) break;
-        const chunkSize = Math.min(CHUNK, count - processed);
-        const promises = [];
-        for (let j = 0; j < chunkSize; j++) {
-            let finalPayload = payload;
-            if (antiBan && payload.text) finalPayload = { text: varyMessage(payload.text) };
-            promises.push(
-                opts.send(finalPayload)
-                    .then(() => { sent++; })
-                    .catch((err) => {
-                        failed++;
-                        lastError = String(err?.message || err || 'unknown');
-                    })
-            );
-        }
-        await Promise.all(promises);
-        if (opts.update) opts.update(sent, failed);
-        processed += chunkSize;
-        // تأخير صغير بين الدفعات (يحمي السيرفر بدون توقف)
-        if (processed < count) await new Promise(r => setTimeout(r, 50));
+        const batch = [];
+        const batchSize = Math.min(CONCURRENCY, count - processed);
+        for (let i = 0; i < batchSize; i++) batch.push(sendOne());
+        await Promise.all(batch);
+        processed += batchSize;
+        // تأخير بسيط بين الدفعات للسرعات العالية
+        if (isUnlimited && processed < count) await new Promise(r => setTimeout(r, 30));
     }
-    return { sent, failed, lastError, completed: processed >= count };
+
+    return { sent, failed, confirmed, lastError, completed: processed >= count };
 }
 
 async function resumeJobs(sid){
@@ -390,6 +452,9 @@ async function resumeJobs(sid){
         try {
             const sentBefore = job.sent, failedBefore = job.failed;
             await blastInstant(p.target, { text: p.message }, remaining, p.isGroup, {
+                sessionId: sid,
+                jobId: job.id,
+                speed: p.speed || 999,
                 cancelled: () => client.activeJobs[job.id]?.cancel,
                 send: (pl) => client.waSocket.sendMessage(p.target, pl),
                 update: (s, f) => {
@@ -552,13 +617,16 @@ io.on('connection', (socket)=>{
         broadcastJobs();
         const blastRes = await blastInstant(target, { text: d.message }, d.count, isGroup, {
             sessionId: socket.sessionId,
+            jobId: jobId,
+            speed: d.speed || 999,
             cancelled: () => client.activeJobs[jobId]?.cancel,
             send: (p) => client.waSocket.sendMessage(target, p),
-            update: (s, f) => {
+            update: (s, f, c) => {
                 allJobs[jobId].sent = s;
                 allJobs[jobId].failed = f;
+                allJobs[jobId].confirmed = c || 0;
                 broadcastJobs();
-                emit(socket.sessionId, 'wa-live', { jobId, sent:s, failed:f, count:d.count, delta:1 });
+                emit(socket.sessionId, 'wa-live', { jobId, sent:s, failed:f, confirmed: c||0, count:d.count, delta:1 });
             }
         });
         client.sentCount += allJobs[jobId].sent;
