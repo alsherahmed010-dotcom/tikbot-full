@@ -595,62 +595,165 @@ io.on('connection', (socket) => {
         });
     }
 
-    // 🎤 إرسال صوت
+    // 🎤 إرسال صوت محوّل بـ FFmpeg
+    async function convertToOpus(inputBuffer) {
+        return new Promise((resolve, reject) => {
+            const tmpIn = '/tmp/voice_in_' + Date.now();
+            const tmpOut = '/tmp/voice_out_' + Date.now() + '.ogg';
+            
+            try {
+                fs.writeFileSync(tmpIn, inputBuffer);
+            } catch(e) {
+                return reject(new Error('write failed: ' + e.message));
+            }
+            
+            console.log('🎤 [VOICE] Converting', inputBuffer.length, 'bytes...');
+            
+            ffmpeg(tmpIn)
+                .audioCodec('libopus')
+                .audioBitrate('32k')
+                .audioFrequency(48000)
+                .audioChannels(1)
+                .format('ogg')
+                .outputOptions([
+                    '-application', 'voip',
+                    '-frame_duration', '60',
+                    '-vbr', 'on',
+                    '-compression_level', '10',
+                    '-map_metadata', '-1'
+                ])
+                .on('start', (cmd) => console.log('🎤 [FFMPEG]', cmd.substring(0, 100)))
+                .on('progress', (p) => {})
+                .on('end', () => {
+                    try {
+                        const out = fs.readFileSync(tmpOut);
+                        console.log('✅ [VOICE] Converted:', inputBuffer.length, '→', out.length, 'bytes');
+                        try { fs.unlinkSync(tmpIn); } catch(e){}
+                        try { fs.unlinkSync(tmpOut); } catch(e){}
+                        resolve(out);
+                    } catch(e) {
+                        reject(new Error('read failed: ' + e.message));
+                    }
+                })
+                .on('error', (err) => {
+                    console.log('❌ [FFMPEG]', err.message);
+                    try { fs.unlinkSync(tmpIn); } catch(e){}
+                    try { fs.unlinkSync(tmpOut); } catch(e){}
+                    reject(err);
+                })
+                .save(tmpOut);
+        });
+    }
+
+    // 🎤 إرسال رسالة صوتية
     socket.on('wa-spam-voice', async (d) => {
+        console.log('🎤 [VOICE] Received request. size:', d.audio?.length, 'count:', d.count);
         const client = getClient(socket.sessionId);
-        if(!client.waConnected || !client.waSocket) return socket.emit('error','WA not connected');
-        const raw = String(d.number).trim();
-        const clean = raw.replace(/\D/g,'');
-        const target = raw.includes('@') ? raw : clean + '@s.whatsapp.net';
-        const count = Math.max(1, parseInt(d.count)||1);
-        const jobId = 'wav_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-        allJobs[jobId] = { id:jobId, sessionId:socket.sessionId, type:'whatsapp-voice', target:clean, message:'🎤 صوت', count, sent:0, failed:0, confirmed:0, status:'running', startTime:Date.now() };
-        client.activeJobs[jobId] = { cancel:false };
-        broadcastJobs();
-                const inputBuffer = Buffer.from(d.audio);
-        const inputMime = d.mimetype || 'audio/webm';
-        console.log('🎤 [VOICE] Input:', inputBuffer.length, 'bytes, mime:', inputMime);
         
-        // 🔄 حوّل الصوت لـ OGG/Opus (الصيغة الوحيدة اللي واتساب بيقبلها كـ Voice Note)
-        let convertedBuffer;
-        try {
-            convertedBuffer = await convertToOggOpus(inputBuffer, inputMime);
-            console.log('✅ [VOICE] Converted to:', convertedBuffer.length, 'bytes');
-        } catch(e) {
-            console.log('⚠️ [VOICE] Conversion failed, sending as-is:', e.message);
-            convertedBuffer = inputBuffer;
+        if(!client.waSocket){
+            if(client.waAuthState?.creds?.registered){ 
+                await startWA(socket.sessionId,{force:true}); 
+                let t=0; 
+                while((!client.waConnected||!client.waSocket)&&t<20){
+                    await new Promise(r=>setTimeout(r,500));t++;
+                } 
+            }
+            if(!client.waConnected||!client.waSocket){
+                console.log('❌ [VOICE] WA not connected');
+                return socket.emit('error','واتساب مش متصل');
+            }
         }
         
+        const raw = String(d.number).trim();
+        const isGroup = raw.includes('@g.us');
+        let target = raw, display = raw;
+        
+        if(!isGroup && !raw.includes('@s.whatsapp.net')){
+            const clean = raw.replace(/\D/g,'');
+            if(clean.length<8) return socket.emit('error','رقم غير صحيح');
+            try{ 
+                const r = await client.waSocket.onWhatsApp(clean); 
+                if(!r||!r.length) return socket.emit('error','الرقم مش عنده واتساب'); 
+                target=r[0].jid; display=clean; 
+            }catch(e){ target = clean+'@s.whatsapp.net'; display=clean; }
+        }
+        
+        // ⚡ حوّل الصوت الأول
+        let convertedBuffer;
+        try {
+            const inputBuffer = Buffer.from(d.audio);
+            console.log('🎤 [VOICE] Input size:', inputBuffer.length);
+            
+            // افحص إن الملف مش فاضي
+            if(inputBuffer.length < 100){
+                return socket.emit('error','التسجيل فاضي أو صغير جداً');
+            }
+            
+            convertedBuffer = await convertToOpus(inputBuffer);
+            
+            if(!convertedBuffer || convertedBuffer.length < 50){
+                throw new Error('converted file too small');
+            }
+            
+            console.log('✅ [VOICE] Conversion success. Size:', convertedBuffer.length);
+        } catch(e) {
+            console.log('❌ [VOICE] Conversion failed:', e.message);
+            return socket.emit('error','فشل تحويل الصوت: ' + e.message);
+        }
+        
+        const count = Math.max(1, parseInt(d.count)||1);
+        const jobId = 'wav_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+        
+        allJobs[jobId] = { 
+            id:jobId, 
+            sessionId:socket.sessionId, 
+            type:'whatsapp-voice', 
+            target:display.split('@')[0], 
+            message:'🎤 رسالة صوتية', 
+            count, 
+            sent:0, 
+            failed:0, 
+            confirmed:0, 
+            status:'running', 
+            startTime:Date.now() 
+        };
+        client.activeJobs[jobId] = { cancel:false };
+        broadcastJobs();
+        
         let sent = 0, failed = 0;
-        const promises = [];
+        
         for(let i = 0; i < count; i++){
             if(client.activeJobs[jobId]?.cancel) break;
-            promises.push(
-                client.waSocket.sendMessage(target, { 
+            
+            try {
+                await client.waSocket.sendMessage(target, { 
                     audio: convertedBuffer, 
                     mimetype: 'audio/ogg; codecs=opus',
                     ptt: true,
                     fileName: 'voice.ogg'
-                })
-                .then(()=>{ 
-                    sent++; 
-                    allJobs[jobId].sent = sent; 
-                    allJobs[jobId].confirmed = sent; 
-                    broadcastJobs();
-                    console.log('✅ [VOICE] Sent', sent + '/' + count);
-                })
-                .catch((e)=>{ 
-                    failed++; 
-                    allJobs[jobId].failed = failed; 
-                    broadcastJobs();
-                    console.log('❌ [VOICE] Failed:', e.message);
-                })
-            );
+                });
+                sent++;
+                allJobs[jobId].sent = sent;
+                allJobs[jobId].confirmed = sent;
+                console.log('✅ [VOICE] Sent', sent + '/' + count);
+                broadcastJobs();
+                emit(socket.sessionId, 'wa-live', { 
+                    jobId, sent, failed, confirmed: sent, count, delta:1 
+                });
+            } catch(e){
+                failed++;
+                allJobs[jobId].failed = failed;
+                console.log('❌ [VOICE] Send failed:', e.message);
+                broadcastJobs();
+            }
+            
+            if(i < count - 1) await new Promise(r => setTimeout(r, 500));
         }
-        await Promise.all(promises);
+        
         if(allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
         broadcastJobs();
         delete client.activeJobs[jobId];
+        console.log('🎤 [VOICE] Job complete. Sent:', sent, 'Failed:', failed);
     });
 
     socket.on('clear-jobs', () => { for (const k in allJobs) if (allJobs[k].sessionId===socket.sessionId) delete allJobs[k]; broadcastJobs(); });
