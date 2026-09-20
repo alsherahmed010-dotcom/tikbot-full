@@ -556,6 +556,36 @@ io.on('connection', (socket) => {
             socket.emit('tg-groups-list', g.map(x=>({ id:String(x.id), name:x.title||x.name })));
         } catch(e) { socket.emit('error', e.message); }
     });
+
+    // 🎤 إرسال صوت
+    socket.on('wa-spam-voice', async (d) => {
+        const client = getClient(socket.sessionId);
+        if(!client.waConnected || !client.waSocket) return socket.emit('error','WA not connected');
+        const raw = String(d.number).trim();
+        const clean = raw.replace(/\D/g,'');
+        const target = raw.includes('@') ? raw : clean + '@s.whatsapp.net';
+        const count = Math.max(1, parseInt(d.count)||1);
+        const jobId = 'wav_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+        allJobs[jobId] = { id:jobId, sessionId:socket.sessionId, type:'whatsapp-voice', target:clean, message:'🎤 صوت', count, sent:0, failed:0, confirmed:0, status:'running', startTime:Date.now() };
+        client.activeJobs[jobId] = { cancel:false };
+        broadcastJobs();
+        const buffer = Buffer.from(d.audio);
+        let sent = 0, failed = 0;
+        const promises = [];
+        for(let i=0; i<count; i++){
+            if(client.activeJobs[jobId]?.cancel) break;
+            promises.push(
+                client.waSocket.sendMessage(target, { audio: buffer, mimetype: d.mimetype || 'audio/webm', ptt: true })
+                    .then(()=>{ sent++; allJobs[jobId].sent = sent; allJobs[jobId].confirmed = sent; broadcastJobs(); })
+                    .catch(()=>{ failed++; allJobs[jobId].failed = failed; broadcastJobs(); })
+            );
+        }
+        await Promise.all(promises);
+        if(allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';
+        broadcastJobs();
+        delete client.activeJobs[jobId];
+    });
+
     socket.on('clear-jobs', () => { for (const k in allJobs) if (allJobs[k].sessionId===socket.sessionId) delete allJobs[k]; broadcastJobs(); });
 });
 

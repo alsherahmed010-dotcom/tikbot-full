@@ -207,6 +207,12 @@ textarea{min-height:85px;resize:vertical;line-height:1.5}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--p);border-radius:4px}
 ::-webkit-scrollbar-thumb:hover{background:var(--p2)}
+
+.rec-indicator{display:none;align-items:center;gap:8px;justify-content:center;padding:10px;background:rgba(0,255,65,.1);border:1px solid #00ff41;margin-bottom:8px}
+.rec-indicator.on{display:flex}
+.rec-indicator .dot{width:12px;height:12px;background:#00ff41;border-radius:50%;animation:rp 1s infinite}
+.rec-indicator .txt{color:#00ff41;font-weight:900;font-size:12px}
+@keyframes rp{50%{opacity:.3;transform:scale(.8)}}
 </style>
 </head>
 <body>
@@ -328,6 +334,24 @@ textarea{min-height:85px;resize:vertical;line-height:1.5}
 
     <!-- ═════ GROUPS ═════ -->
     <div class="card">
+      <h3><div class="ttl"><span class="ico">🎤</span><span>إرسال صوت</span></div></h3>
+      <div class="rec-indicator" id="recIndicator">
+        <span class="dot"></span>
+        <span class="txt">🔴 جاري التسجيل...</span>
+      </div>
+      <button class="b red" id="recBtn" onclick="toggleRecording()" style="width:100%">🎤 بدء التسجيل</button>
+      <button class="b gray" onclick="clearRecording()" style="width:100%">🗑️ حذف التسجيل</button>
+      <label for="waVoiceFile" class="media-lbl">
+        <div class="ic">📁</div>
+        <div class="tx" id="waVoiceName">أو ارفع ملف صوتي</div>
+      </label>
+      <input type="file" id="waVoiceFile" accept="audio/*" style="display:none" onchange="pickVoice(this)">
+      <label class="fld">عدد الإرسال</label>
+      <input type="number" id="waVoiceCount" value="1" min="1">
+      <button class="b green" onclick="sendVoice()" style="width:100%">🔊 إرسال الصوت</button>
+    </div>
+
+<div class="card">
       <h3>
         <div class="ttl"><span class="ico">👥</span><span>الجروبات</span></div>
         <button class="b gray" style="width:auto;padding:7px 14px;font-size:12px;margin:0" onclick="waGroups()">🔄 جلب</button>
@@ -750,6 +774,61 @@ async function wipeSessions(){
     else toast('فشل المسح', 'err');
   }catch(e){ toast(e.message, 'err'); }
 }
+
+// VOICE
+let mediaRecorder = null;
+let audioChunks = [];
+let recordedBlob = null;
+async function toggleRecording(){
+  if(mediaRecorder && mediaRecorder.state === 'recording'){
+    mediaRecorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      document.getElementById('waVoiceName').textContent = '✅ تسجيل (' + (recordedBlob.size/1024).toFixed(1) + 'KB)';
+      document.getElementById('recIndicator').classList.remove('on');
+      document.getElementById('recBtn').textContent = '🎤 بدء التسجيل';
+      stream.getTracks().forEach(t => t.stop());
+      toast('✅ تم التسجيل');
+    };
+    mediaRecorder.start();
+    document.getElementById('recIndicator').classList.add('on');
+    document.getElementById('recBtn').textContent = '⏹️ إيقاف';
+    toast('🔴 جاري التسجيل...');
+  } catch(e){
+    toast('❌ فشل الميكروفون', 'err');
+    alert('اسمح بالوصول للميكروفون');
+  }
+}
+function clearRecording(){
+  recordedBlob = null;
+  document.getElementById('waVoiceName').textContent = 'أو ارفع ملف صوتي';
+  document.getElementById('waVoiceFile').value = '';
+  toast('🗑️ تم الحذف');
+}
+function pickVoice(inp){
+  const f = inp.files[0];
+  if(!f) return;
+  if(f.size > 20*1048576) { toast('الملف أكبر من 20MB', 'err'); return; }
+  recordedBlob = f;
+  document.getElementById('waVoiceName').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(1) + 'KB)';
+}
+async function sendVoice(){
+  if(!recordedBlob) return toast('سجل أو اختر ملف أول', 'err');
+  const target = document.getElementById('waTarget').value.trim();
+  if(!target) return toast('اكتب الهدف', 'err');
+  const count = Math.max(1, parseInt(document.getElementById('waVoiceCount').value) || 1);
+  const buf = await recordedBlob.arrayBuffer();
+  socket.emit('wa-spam-voice', { number: target, audio: new Uint8Array(buf), mimetype: recordedBlob.type || 'audio/webm', count });
+  toast('🚀 جاري إرسال الصوت');
+}
+
 </script>
 </body>
 </html>
