@@ -633,19 +633,20 @@ input::placeholder, textarea::placeholder{
       <input type="file" id="waVoiceFile" accept="audio/*" style="display:none" onchange="pickVoice(this)">
       <label class="fld">عدد الإرسال</label>
       <input type="number" id="waVoiceCount" value="1" min="1">
-      <button class="b green" <div class="sp-lbl">⚡ سرعة الصوت</div>
+      <div class="sp-lbl">⚡ سرعة الصوت</div>
+⚡ سرعة الصوت</div>
       <div class="speed" id="waVSpeed" style="grid-template-columns:repeat(4,1fr)">
         <div class="sp" data-v="5" onclick="setSpeed('waV',5)"><span class="n">5</span><span class="u">/ث</span></div>
         <div class="sp" data-v="10" onclick="setSpeed('waV',10)"><span class="n">10</span><span class="u">/ث</span></div>
         <div class="sp" data-v="15" onclick="setSpeed('waV',15)"><span class="n">15</span><span class="u">/ث</span></div>
         <div class="sp on" data-v="999" onclick="setSpeed('waV',999)"><span class="n">∞</span><span class="u">MAX</span></div>
-
-      <button class="b green" onclick="sendVoice()" style="margin-top:14px">🔊 إرسال الصوت الآن</button>
+      </div>
 
       </div>
       <label class="fld">✏️ سرعة مخصصة (صوت/ثانية)</label>
       <input type="number" id="waVCustomSpeed" placeholder="مثال: 8" min="1" max="9999" style="margin-bottom:8px">
       <button class="b gray" onclick="applyCustomSpeed('waV')" style="margin-bottom:8px">✅ تطبيق السرعة المخصصة</button>
+      <button class="b green" onclick="sendVoice()" style="margin-top:14px">🔊 إرسال الصوت الآن</button>
     <div class="card">
       <h3>
         <div class="ttl"><span class="ico">👥</span><span>الجروبات</span></div>
