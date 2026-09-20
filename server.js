@@ -666,10 +666,7 @@ io.on('connection', (socket) => {
 
     // 🎤 إرسال صوت محوّل
     socket.on('wa-spam-voice', async (d) => {
-        console.log('🎤 [VOICE] ========== START ==========');
-        console.log('🎤 [VOICE] Audio size:', d.audio?.length);
-        console.log('🎤 [VOICE] Count:', d.count);
-        console.log('🎤 [VOICE] Target:', d.number);
+        console.log('🎤 [VOICE] Start — Count:', d.count, 'Size:', (d.audio?.length/1024).toFixed(1) + 'KB');
         
         const client = getClient(socket.sessionId);
         if(!client.waSocket){
@@ -680,16 +677,12 @@ io.on('connection', (socket) => {
                     await new Promise(r=>setTimeout(r,500));t++;
                 } 
             }
-            if(!client.waConnected||!client.waSocket){
-                console.log('❌ [VOICE] WA not connected');
-                return socket.emit('error','واتساب مش متصل');
-            }
+            if(!client.waConnected||!client.waSocket) return socket.emit('error','واتساب مش متصل');
         }
         
         const raw = String(d.number).trim();
         const isGroup = raw.includes('@g.us');
         let target = raw, display = raw;
-        
         if(!isGroup && !raw.includes('@s.whatsapp.net')){
             const clean = raw.replace(/\D/g,'');
             if(clean.length<8) return socket.emit('error','رقم غير صحيح');
@@ -704,18 +697,15 @@ io.on('connection', (socket) => {
         let convertedBuffer;
         try {
             const inputBuffer = Buffer.from(d.audio);
+            if(inputBuffer.length < 200) return socket.emit('error','التسجيل قصير جداً');
             
-            if(inputBuffer.length < 200){
-                return socket.emit('error','التسجيل قصير جداً');
-            }
-            
+            const startConv = Date.now();
             convertedBuffer = await convertToOpus(inputBuffer);
+            console.log('⚡ [VOICE] Converted in', ((Date.now()-startConv)/1000).toFixed(2) + 's');
             
             if(!convertedBuffer || convertedBuffer.length < 100){
                 throw new Error('converted output invalid');
             }
-            
-            console.log('✅ [VOICE] Conversion OK. Final size:', convertedBuffer.length);
         } catch(e) {
             console.log('❌ [VOICE] Conversion failed:', e.message);
             return socket.emit('error','فشل تحويل الصوت: ' + e.message);
@@ -725,73 +715,76 @@ io.on('connection', (socket) => {
         const speed = Math.max(1, parseInt(d.speed) || 999);
         const jobId = 'wav_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
         
-        // ✅ سجل العملية بشكل واضح
+        // ⚡ BATCH_SIZE للصوت — أسرع!
+        // MAX (999) = 25 parallel | 15 = 10 | 10 = 6 | 5 = 3
+        let BATCH;
+        if (speed >= 999) BATCH = 25;
+        else if (speed >= 15) BATCH = 10;
+        else if (speed >= 10) BATCH = 6;
+        else if (speed >= 5) BATCH = 3;
+        else BATCH = 2;
+        
+        const batchDelay = speed >= 999 ? 0 : Math.max(20, Math.floor(1000 / speed));
+        
         allJobs[jobId] = { 
-            id: jobId, 
-            sessionId: socket.sessionId, 
-            type: 'whatsapp-voice', 
-            target: display.split('@')[0], 
-            message: '🎤 رسالة صوتية', 
-            count: count, 
-            sent: 0, 
-            failed: 0, 
-            confirmed: 0, 
-            status: 'running', 
-            startTime: Date.now() 
+            id: jobId, sessionId: socket.sessionId, type: 'whatsapp-voice', 
+            target: display.split('@')[0], message: '🎤 رسالة صوتية', 
+            count: count, sent: 0, failed: 0, confirmed: 0, 
+            status: 'running', startTime: Date.now() 
         };
         client.activeJobs[jobId] = { cancel:false };
         broadcastJobs();
-        console.log('📋 [VOICE] Job created:', jobId);
+        
+        console.log(`⚡ [VOICE] Sending ${count} voices | Batch: ${BATCH} | Speed: ${speed}/s`);
         
         let sent = 0, failed = 0;
+        let processed = 0;
         
-        for(let i = 0; i < count; i++){
-            if(client.activeJobs[jobId]?.cancel) {
-                console.log('⏹️ [VOICE] Cancelled by user');
+        while (processed < count) {
+            if (client.activeJobs[jobId]?.cancel) {
+                console.log('⏹️ [VOICE] Cancelled');
                 break;
             }
             
-            try {
-                await client.waSocket.sendMessage(target, { 
-                    audio: convertedBuffer, 
-                    mimetype: 'audio/ogg; codecs=opus',
-                    ptt: true
-                });
-                
-                sent++;
-                allJobs[jobId].sent = sent;
-                allJobs[jobId].confirmed = sent;
-                console.log('✅ [VOICE] Sent', sent + '/' + count);
-                broadcastJobs();
-                emit(socket.sessionId, 'wa-live', { 
-                    jobId, sent, failed, confirmed: sent, count, delta: 1 
-                });
-            } catch(e){
-                failed++;
-                allJobs[jobId].failed = failed;
-                console.log('❌ [VOICE] Send failed:', e.message);
-                broadcastJobs();
+            const batchSize = Math.min(BATCH, count - processed);
+            const promises = [];
+            
+            for (let i = 0; i < batchSize; i++) {
+                promises.push(
+                    client.waSocket.sendMessage(target, { 
+                        audio: convertedBuffer, 
+                        mimetype: 'audio/ogg; codecs=opus',
+                        ptt: true
+                    })
+                    .then(() => { sent++; })
+                    .catch((e) => { 
+                        failed++; 
+                        console.log('❌ [VOICE] Fail:', e.message.substring(0, 60)); 
+                    })
+                );
             }
             
-            // تأخير حسب السرعة
-            if(i < count - 1){
-                const delay = speed >= 999 ? 0 : Math.max(50, Math.floor(1000 / speed));
-                if(delay > 0) await new Promise(r => setTimeout(r, delay));
+            await Promise.allSettled(promises);
+            processed += batchSize;
+            
+            allJobs[jobId].sent = sent;
+            allJobs[jobId].failed = failed;
+            allJobs[jobId].confirmed = sent;
+            broadcastJobs();
+            emit(socket.sessionId, 'wa-live', { 
+                jobId, sent, failed, confirmed: sent, count, delta: batchSize 
+            });
+            
+            if (batchDelay > 0 && processed < count) {
+                await new Promise(r => setTimeout(r, batchDelay));
             }
         }
         
-        // ⚡ علامة انتهت
         allJobs[jobId].status = 'done';
-        allJobs[jobId].confirmed = sent;
         broadcastJobs();
-        console.log('🎤 [VOICE] ========== END ==========');
-        console.log('📊 Sent:', sent, '| Failed:', failed);
+        console.log('🎤 [VOICE] Done — Sent:', sent, '| Failed:', failed);
         
-        // سيب العملية ظاهرة 30 ثانية قبل ما تختفي
-        setTimeout(() => {
-            delete client.activeJobs[jobId];
-            // مش هنمسح من allJobs عشان تفضل ظاهرة
-        }, 30000);
+        setTimeout(() => delete client.activeJobs[jobId], 30000);
     });
 
 

@@ -561,90 +561,21 @@ input::placeholder, textarea::placeholder{
       <input type="number" id="waCount" value="10" min="1">
 
       <div class="sp-lbl">⚡ سرعة الإرسال</div>
-      <div class="speed" id="waSpeed" style="grid-template-columns:repeat(4,1fr)">
+      <div class="speed" id="waSpeed" style="grid-template-columns:repeat(5,1fr)">
         <div class="sp" data-v="2" onclick="setSpeed('wa',2)"><span class="n">2</span><span class="u">/ث</span></div>
-        <div class="sp" data-v="3" onclick="setSpeed('wa',3)"><span class="n">3</span><span class="u">/ث</span></div>
         <div class="sp" data-v="5" onclick="setSpeed('wa',5)"><span class="n">5</span><span class="u">/ث</span></div>
         <div class="sp" data-v="10" onclick="setSpeed('wa',10)"><span class="n">10</span><span class="u">/ث</span></div>
         <div class="sp" data-v="30" onclick="setSpeed('wa',30)"><span class="n">30</span><span class="u">/ث</span></div>
         <div class="sp" data-v="60" onclick="setSpeed('wa',60)"><span class="n">60</span><span class="u">/ث</span></div>
         <div class="sp" data-v="100" onclick="setSpeed('wa',100)"><span class="n">100</span><span class="u">/ث</span></div>
-        <div class="sp on" data-v="999" onclick="setSpeed('wa',999)"><span class="n">∞</span><span class="u">MAX</span></div>
-
-      <label class="fld">✏️ سرعة مخصصة (رسالة/ثانية)</label>
-      <input type="number" id="waCustomSpeed" placeholder="مثال: 50" min="1" max="9999" style="margin-bottom:8px">
-      <button class="b gray" onclick="applyCustomSpeed('wa')" style="margin-bottom:8px">✅ تطبيق السرعة المخصصة</button>
-      </div>
-
-      <button class="b green" onclick="waSend()">🚀 ابدأ الإرسال</button>
-    </div>
-
-    <!-- ═════ MEDIA BLAST ═════ -->
-    <div class="card">
-      <h3><div class="ttl"><span class="ico">🎬</span><span>إرسال صور / فيديو</span></div></h3>
-
-      <label class="fld">🎯 الهدف (رقم)</label>
-      <input type="text" id="waMediaTarget" placeholder="201234567890">
-      <label for="waMediaFile" class="media-lbl">
-        <div class="ic">📎</div>
-        <div class="tx" id="waMName">اضغط لاختيار ملفات (متعدد)</div>
-      </label>
-      <input type="file" id="waMediaFile" accept="image/*,video/*" multiple style="display:none" onchange="pickMedia('wa',this)">
-
-      <div id="waMList" style="display:none;max-height:200px;overflow-y:auto;margin-bottom:8px"></div>
-
-      <label class="fld">✍️ تعليق (اختياري)</label>
-      <input type="text" id="waMCap" placeholder="تعليق على الملف">
-
-      <label class="fld">🔁 عدد مرات الإرسال لكل ملف</label>
-      <input type="number" id="waMRep" value="1" min="1">
-
-      <div class="sp-lbl">⚡ سرعة الإرسال</div>
-      <div class="speed" id="waMSpeed" style="grid-template-columns:repeat(5,1fr)">
-        <div class="sp" data-v="5" onclick="setSpeed('waM',5)"><span class="n">5</span><span class="u">/ث</span></div>
-        <div class="sp" data-v="10" onclick="setSpeed('waM',10)"><span class="n">10</span><span class="u">/ث</span></div>
-        <div class="sp" data-v="20" onclick="setSpeed('waM',20)"><span class="n">20</span><span class="u">/ث</span></div>
-        <div class="sp" data-v="50" onclick="setSpeed('waM',50)"><span class="n">50</span><span class="u">/ث</span></div>
-        <div class="sp on" data-v="999" onclick="setSpeed('waM',999)"><span class="n">∞</span><span class="u">MAX</span></div>
-
-      <label class="fld">✏️ سرعة مخصصة (وسيط/ثانية)</label>
-      <input type="number" id="waMCustomSpeed" placeholder="مثال: 30" min="1" max="9999" style="margin-bottom:8px">
-      <button class="b gray" onclick="applyCustomSpeed('waM')" style="margin-bottom:8px">✅ تطبيق السرعة المخصصة</button>
-      </div>
-
-      <button class="b green" onclick="sendMedia('wa')">🎬 إرسال (<span id="waMTot">0</span>)</button>
-    </div>
-
-    <!-- ═════ GROUPS ═════ -->
-    <div class="card">
-      <h3><div class="ttl"><span class="ico">🎤</span><span>إرسال صوت</span></div></h3>
-      <label class="fld">🎯 الهدف (رقم)</label>
-      <input type="text" id="waVoiceTarget" placeholder="201234567890">
-      <div class="rec-indicator" id="recIndicator">
-        <span class="dot"></span>
-        <span class="txt">🔴 جاري التسجيل...</span>
-      </div>
-      <button class="b red" id="recBtn" onclick="toggleRecording()" style="width:100%">🎤 بدء التسجيل</button>
-      <button class="b gray" onclick="clearRecording()" style="width:100%">🗑️ حذف التسجيل</button>
-      <label for="waVoiceFile" class="media-lbl">
-        <div class="ic">📁</div>
-        <div class="tx" id="waVoiceName">أو ارفع ملف صوتي</div>
-      </label>
-      <input type="file" id="waVoiceFile" accept="audio/*" style="display:none" onchange="pickVoice(this)">
-      <label class="fld">عدد الإرسال</label>
-      <input type="number" id="waVoiceCount" value="1" min="1">
-      <div class="sp-lbl">⚡ سرعة الصوت</div>
-⚡ سرعة الصوت</div>
-      <div class="speed" id="waVSpeed" style="grid-template-columns:repeat(4,1fr)">
-        <div class="sp" data-v="5" onclick="setSpeed('waV',5)"><span class="n">5</span><span class="u">/ث</span></div>
-        <div class="sp" data-v="10" onclick="setSpeed('waV',10)"><span class="n">10</span><span class="u">/ث</span></div>
-        <div class="sp" data-v="15" onclick="setSpeed('waV',15)"><span class="n">15</span><span class="u">/ث</span></div>
-        <div class="sp on" data-v="999" onclick="setSpeed('waV',999)"><span class="n">∞</span><span class="u">MAX</span></div>
+        <div class="sp" data-v="500" onclick="setSpeed('wa',500)"><span class="n">500</span><span class="u">/ث</span></div>
+        <div class="sp" data-v="1000" onclick="setSpeed('wa',1000)"><span class="n">1000</span><span class="u">/ث</span></div>
+        <div class="sp on" data-v="999" onclick="setSpeed('wa',999)" style="grid-column:span 2"><span class="n">⚡ ∞</span><span class="u">MAX SUPER</span></div>
       </div>
 
       </div>
       <label class="fld">✏️ سرعة مخصصة (صوت/ثانية)</label>
-      <input type="number" id="waVCustomSpeed" placeholder="مثال: 8" min="1" max="9999" style="margin-bottom:8px">
+      <input type="number" id="waVCustomSpeed" placeholder="مثال: 8" min="1" max="1000" style="margin-bottom:8px">
       <button class="b gray" onclick="applyCustomSpeed('waV')" style="margin-bottom:8px">✅ تطبيق السرعة المخصصة</button>
       <button class="b green" onclick="sendVoice()" style="margin-top:14px">🔊 إرسال الصوت الآن</button>
     <div class="card">
@@ -727,20 +658,13 @@ function applyCustomSpeed(key){
     const input = document.getElementById(inputId);
     if(!input) return;
     const v = parseInt(input.value);
-    if(!v || v < 1){
-        toast('اكتب رقم أكبر من 0', 'err');
-        return;
-    }
-    if(v > 9999){
-        toast('الحد الأقصى 9999', 'err');
-        return;
-    }
+    if(!v || v < 1){ toast('اكتب رقم من 1 إلى 1000', 'err'); return; }
+    if(v > 1000){ toast('الحد الأقصى 1000/ث', 'err'); input.value = 1000; return; }
     speedState[key] = v;
-    // شيل أي اختيار من الأزرار
     const c = document.getElementById(key + 'Speed');
     if(c) c.querySelectorAll('.sp').forEach(el => el.classList.remove('on'));
     localStorage.setItem('speed_' + key, v);
-    toast('✅ السرعة: ' + v + '/ث');
+    toast('⚡ السرعة: ' + v + '/ث');
 }
 
 function getSpeed(key){ return speedState[key] || 30; }
