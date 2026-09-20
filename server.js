@@ -248,6 +248,62 @@ async function logoutTG(sid) {
     } catch(e) { return { error:e.message }; }
 }
 
+
+// ═══════════════════════════════════════════════════
+// 🎤 تحويل الصوت لـ Opus (Voice Note)
+// ═══════════════════════════════════════════════════
+async function convertToOpus(inputBuffer) {
+    return new Promise((resolve, reject) => {
+        const tmpIn = '/tmp/vi_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+        const tmpOut = '/tmp/vo_' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.ogg';
+        
+        try {
+            fs.writeFileSync(tmpIn, inputBuffer);
+        } catch(e) {
+            return reject(new Error('write failed: ' + e.message));
+        }
+        
+        const startTime = Date.now();
+        
+        ffmpeg(tmpIn)
+            .audioCodec('libopus')
+            .audioBitrate('24k')
+            .audioFrequency(48000)
+            .audioChannels(1)
+            .format('ogg')
+            .outputOptions([
+                '-application', 'voip',
+                '-frame_duration', '20',
+                '-vbr', 'on',
+                '-compression_level', '8',
+                '-threads', '4',
+                '-map_metadata', '-1'
+            ])
+            .on('end', () => {
+                try {
+                    const out = fs.readFileSync(tmpOut);
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                    const header = out.slice(0, 4).toString();
+                    console.log('✅ [FFMPEG]', (inputBuffer.length/1024).toFixed(1), '→', (out.length/1024).toFixed(1), 'KB in', elapsed + 's | Header:', header);
+                    try { fs.unlinkSync(tmpIn); } catch(e){}
+                    try { fs.unlinkSync(tmpOut); } catch(e){}
+                    resolve(out);
+                } catch(e) {
+                    try { fs.unlinkSync(tmpIn); } catch(e){}
+                    try { fs.unlinkSync(tmpOut); } catch(e){}
+                    reject(new Error('read failed: ' + e.message));
+                }
+            })
+            .on('error', (err) => {
+                console.log('❌ [FFMPEG]', err.message);
+                try { fs.unlinkSync(tmpIn); } catch(e){}
+                try { fs.unlinkSync(tmpOut); } catch(e){}
+                reject(err);
+            })
+            .save(tmpOut);
+    });
+}
+
 app.post('/api/wipe-sessions', async (req, res) => {
     try {
         for (const sid in clients) {
@@ -294,65 +350,7 @@ async function blast(target, payload, count, isGroup, onProgress) {
 // ═══════════════════════════════════════════════════
 // 🎤 تحويل الصوت لـ Opus (صيغة واتساب Voice Note)
 // ═══════════════════════════════════════════════════
-async function convertToOpus(inputBuffer) {
-    return new Promise((resolve, reject) => {
-        const tmpIn = '/tmp/vi_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-        const tmpOut = '/tmp/vo_' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.ogg';
-        
-        try {
-            fs.writeFileSync(tmpIn, inputBuffer);
-            console.log('🎤 [FFMPEG] Input:', (inputBuffer.length/1024).toFixed(1), 'KB');
-        } catch(e) {
-            return reject(new Error('write failed: ' + e.message));
-        }
-        
-        const startTime = Date.now();
-        
-        ffmpeg(tmpIn)
-            .audioCodec('libopus')
-            .audioBitrate('24k')
-            .audioFrequency(48000)
-            .audioChannels(1)
-            .format('ogg')
-            .outputOptions([
-                '-application', 'voip',
-                '-frame_duration', '20',
-                '-vbr', 'on',
-                '-compression_level', '8',
-                '-threads', '4',
-                '-map_metadata', '-1'
-            ])
-            .on('start', () => console.log('🎤 [FFMPEG] Started...'))
-            .on('end', () => {
-                try {
-                    const out = fs.readFileSync(tmpOut);
-                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-                    
-                    if (out.length < 100) {
-                        throw new Error('output too small');
-                    }
-                    
-                    const header = out.slice(0, 4).toString();
-                    console.log('✅ [FFMPEG]', (inputBuffer.length/1024).toFixed(1), '→', (out.length/1024).toFixed(1), 'KB in', elapsed + 's | Header:', header);
-                    
-                    try { fs.unlinkSync(tmpIn); } catch(e){}
-                    try { fs.unlinkSync(tmpOut); } catch(e){}
-                    resolve(out);
-                } catch(e) {
-                    try { fs.unlinkSync(tmpIn); } catch(e){}
-                    try { fs.unlinkSync(tmpOut); } catch(e){}
-                    reject(new Error('read failed: ' + e.message));
-                }
-            })
-            .on('error', (err) => {
-                console.log('❌ [FFMPEG]', err.message);
-                try { fs.unlinkSync(tmpIn); } catch(e){}
-                try { fs.unlinkSync(tmpOut); } catch(e){}
-                reject(err);
-            })
-            .save(tmpOut);
-    });
-}
+
 
 io.on('connection', (socket) => {
     socket.emit('jobs-update', Object.values(allJobs));
