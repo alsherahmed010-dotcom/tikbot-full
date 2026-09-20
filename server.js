@@ -751,7 +751,10 @@ io.on('connection', (socket) => {
                 broadcastJobs();
             }
             
-            if(i < count - 1) await new Promise(r => setTimeout(r, 500));
+            // ⚡ استخدم السرعة المطلوبة
+            const speed = Math.max(1, parseInt(d.speed) || 999);
+            const delay = speed >= 999 ? 0 : Math.max(50, Math.floor(1000 / speed));
+            if(i < count - 1 && delay > 0) await new Promise(r => setTimeout(r, delay));
         }
         
         if(allJobs[jobId].status === 'running') allJobs[jobId].status = 'done';

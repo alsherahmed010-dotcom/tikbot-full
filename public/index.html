@@ -622,7 +622,17 @@ input::placeholder, textarea::placeholder{
       <input type="file" id="waVoiceFile" accept="audio/*" style="display:none" onchange="pickVoice(this)">
       <label class="fld">عدد الإرسال</label>
       <input type="number" id="waVoiceCount" value="1" min="1">
-      <button class="b green" onclick="sendVoice()" style="width:100%">🔊 إرسال الصوت</button>
+      <button class="b green" <div class="sp-lbl">⚡ سرعة الصوت</div>
+      <div class="speed" id="waVSpeed" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sp" data-v="5" onclick="setSpeed('waV',5)"><span class="n">5</span><span class="u">/ث</span></div>
+        <div class="sp" data-v="10" onclick="setSpeed('waV',10)"><span class="n">10</span><span class="u">/ث</span></div>
+        <div class="sp" data-v="15" onclick="setSpeed('waV',15)"><span class="n">15</span><span class="u">/ث</span></div>
+        <div class="sp on" data-v="999" onclick="setSpeed('waV',999)"><span class="n">∞</span><span class="u">MAX</span></div>
+      </div>
+      <label class="fld">✏️ سرعة مخصصة (صوت/ثانية)</label>
+      <input type="number" id="waVCustomSpeed" placeholder="مثال: 8" min="1" max="9999" style="margin-bottom:8px">
+      <button class="b gray" onclick="applyCustomSpeed('waV')" style="margin-bottom:8px">✅ تطبيق السرعة المخصصة</button>
+      onclick="sendVoice()" style="width:100%">🔊 إرسال الصوت</button>
     </div>
 
 <div class="card">
@@ -688,12 +698,39 @@ function toast(msg, type = 'ok'){
 
 /* ═════ SPEED ═════ */
 function setSpeed(key, val){
-  speedState[key] = val;
-  const c = document.getElementById(key + 'Speed');
-  if(!c) return;
-  c.querySelectorAll('.sp').forEach(el => el.classList.toggle('on', parseInt(el.dataset.val || el.dataset.v) === val));
-  localStorage.setItem('speeds', JSON.stringify(speedState));
+    speedState[key] = val;
+    localStorage.setItem('speed_' + key, val);
+    const c = document.getElementById(key + 'Speed');
+    if(c){
+        c.querySelectorAll('.sp').forEach(el => el.classList.toggle('on', parseInt(el.dataset.v) === val));
+    }
+    // امسح خانة السرعة المخصصة عشان مبسطة
+    const inputId = key === 'wa' ? 'waCustomSpeed' : (key === 'waM' ? 'waMCustomSpeed' : 'waVCustomSpeed');
+    const input = document.getElementById(inputId);
+    if(input) input.value = '';
 }
+
+function applyCustomSpeed(key){
+    const inputId = key === 'wa' ? 'waCustomSpeed' : (key === 'waM' ? 'waMCustomSpeed' : 'waVCustomSpeed');
+    const input = document.getElementById(inputId);
+    if(!input) return;
+    const v = parseInt(input.value);
+    if(!v || v < 1){
+        toast('اكتب رقم أكبر من 0', 'err');
+        return;
+    }
+    if(v > 9999){
+        toast('الحد الأقصى 9999', 'err');
+        return;
+    }
+    speedState[key] = v;
+    // شيل أي اختيار من الأزرار
+    const c = document.getElementById(key + 'Speed');
+    if(c) c.querySelectorAll('.sp').forEach(el => el.classList.remove('on'));
+    localStorage.setItem('speed_' + key, v);
+    toast('✅ السرعة: ' + v + '/ث');
+}
+
 function getSpeed(key){ return speedState[key] || 30; }
 
 /* ═════ AUTO SESSION ═════ */
@@ -1030,7 +1067,9 @@ function waSend(){
   const m = document.getElementById('waMsg').value;
   const c = parseInt(document.getElementById('waCount').value);
   if(!n || !m || !c) return toast('املأ البيانات المطلوبة', 'err');
-  socket.emit('wa-spam', { number:n, message:m, count:c, speed:getSpeed('wa') });
+  const speed = getSpeed('wa');
+  socket.emit('wa-spam', { number:n, message:m, count:c, speed });
+  console.log('📤 Sending', c, 'messages at speed', speed);
   saveTarget(n);
   localStorage.setItem('last_msg', m);
   toast('🚀 بدأ الإرسال');
