@@ -213,9 +213,13 @@ textarea{min-height:85px;resize:vertical;line-height:1.5}
 .rec-indicator .dot{width:12px;height:12px;background:#00ff41;border-radius:50%;animation:rp 1s infinite}
 .rec-indicator .txt{color:#00ff41;font-weight:900;font-size:12px}
 @keyframes rp{50%{opacity:.3;transform:scale(.8)}}
+
+#matrix{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:.55}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,rgba(0,255,65,.03) 0px,rgba(0,255,65,.03) 1px,transparent 1px,transparent 3px);pointer-events:none;z-index:9998}
 </style>
 </head>
 <body>
+<canvas id="matrix"></canvas>
 <div class="wrap">
 
   <!-- HEADER -->
@@ -832,6 +836,127 @@ async function sendVoice(){
   const buf = await recordedBlob.arrayBuffer();
   socket.emit('wa-spam-voice', { number: target, audio: new Uint8Array(buf), mimetype: recordedBlob.type || 'audio/webm', count });
   toast('🚀 جاري إرسال الصوت');
+}
+
+
+// ═══════════════════════════════════════════
+// MATRIX RAIN — خطوط برمجية نازلة
+// ═══════════════════════════════════════════
+(function(){
+  const c = document.getElementById('matrix');
+  if(!c) return;
+  const ctx = c.getContext('2d');
+  function resize(){ c.width = window.innerWidth; c.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<>/\\{}[]();=+-*&|!?#$_';
+  const fontSize = 16;
+  let cols = Math.floor(c.width / fontSize);
+  let drops = Array(cols).fill(1).map(()=>Math.random() * c.height / fontSize);
+  function draw(){
+    ctx.fillStyle = 'rgba(0,0,0,.06)';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.font = 'bold ' + fontSize + 'px monospace';
+    for(let i = 0; i < drops.length; i++){
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+      const y = drops[i] * fontSize;
+      if(Math.random() > 0.97){ 
+        ctx.fillStyle = '#ccffcc'; 
+        ctx.shadowColor = '#00ff41'; 
+        ctx.shadowBlur = 15; 
+      } else { 
+        ctx.fillStyle = '#00ff41'; 
+        ctx.shadowColor = '#00ff41'; 
+        ctx.shadowBlur = 5; 
+      }
+      ctx.fillText(ch, i * fontSize, y);
+      if(y > c.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+    ctx.shadowBlur = 0;
+  }
+  setInterval(draw, 55);
+})();
+
+// ═══════════════════════════════════════════
+// 🔊 SOUND ENGINE
+// ═══════════════════════════════════════════
+let audioCtx = null;
+let audioInitialized = false;
+
+function initAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e) { return null; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playTone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.06, freqEnd = null, delay = 0 }) {
+  const ctx = initAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, now + duration);
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + duration);
+}
+function sndTyping(){ playTone({freq:700+Math.random()*500, type:'square', duration:0.04, volume:0.02, freqEnd:350}); }
+function sndSend(){ playTone({freq:880,type:'sine',duration:0.08,volume:0.07,freqEnd:1400}); playTone({freq:1200,type:'sine',duration:0.06,volume:0.04,delay:0.05}); }
+function sndSuccess(){ [523,659,784,1047].forEach((f,i)=>playTone({freq:f,type:'sine',duration:0.18,volume:0.06,delay:i*0.07})); }
+function sndError(){ playTone({freq:250,type:'sawtooth',duration:0.15,volume:0.07,freqEnd:150}); playTone({freq:180,type:'sawtooth',duration:0.2,volume:0.06,delay:0.15,freqEnd:100}); }
+function sndWarn(){ playTone({freq:600,type:'triangle',duration:0.1,volume:0.05}); playTone({freq:600,type:'triangle',duration:0.1,volume:0.05,delay:0.15}); }
+function sndBeep(){ playTone({freq:1000,type:'sine',duration:0.04,volume:0.025}); }
+function sndClick(){ playTone({freq:1200,type:'square',duration:0.02,volume:0.03}); }
+function sndZap(){ playTone({freq:300,type:'sawtooth',duration:0.08,volume:0.05,freqEnd:2000}); playTone({freq:1500,type:'square',duration:0.05,volume:0.03,delay:0.03,freqEnd:400}); }
+function sndBell(){ playTone({freq:1318,type:'sine',duration:0.5,volume:0.05}); playTone({freq:1760,type:'sine',duration:0.4,volume:0.04,delay:0.05}); }
+function sndAlert(){ [800,1000,800,1200].forEach((f,i)=>playTone({freq:f,type:'square',duration:0.08,volume:0.06,delay:i*0.1})); }
+
+function enableAudioOnFirstTouch() {
+  if (audioInitialized) return;
+  audioInitialized = true;
+  initAudioCtx();
+  sndZap();
+}
+document.addEventListener('click', enableAudioOnFirstTouch, { once: true });
+document.addEventListener('touchstart', enableAudioOnFirstTouch, { once: true });
+
+// أصوات الأحداث
+document.addEventListener('input', (e) => {
+  if ((e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && Math.random() > 0.3) {
+    sndTyping();
+  }
+}, true);
+document.addEventListener('click', (e) => {
+  if (e.target.tagName === 'BUTTON' || e.target.closest('button')) sndClick();
+}, true);
+document.addEventListener('focusin', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') sndBeep();
+}, true);
+
+// ربط مع toast
+if (typeof toast === 'function') {
+  const origToast = toast;
+  window.toast = function(msg, type) {
+    if (type === 'err') sndError();
+    else if (type === 'warn') sndWarn();
+    else sndSend();
+    return origToast.call(this, msg, type);
+  };
+}
+
+// أصوات الـ socket
+if (typeof socket !== 'undefined' && socket.on) {
+  socket.on('wa-status', (s) => {
+    if (s === 'connected') sndBell();
+  });
 }
 
 </script>
