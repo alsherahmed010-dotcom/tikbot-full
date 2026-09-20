@@ -598,7 +598,7 @@ io.on('connection', (socket) => {
     // 🎤 إرسال صوت محوّل بـ FFmpeg
     async function convertToOpus(inputBuffer) {
         return new Promise((resolve, reject) => {
-            const tmpIn = '/tmp/voice_in_' + Date.now();
+            const tmpIn = '/tmp/voice_in_' + Date.now() + '.webm';
             const tmpOut = '/tmp/voice_out_' + Date.now() + '.ogg';
             
             try {
@@ -607,7 +607,8 @@ io.on('connection', (socket) => {
                 return reject(new Error('write failed: ' + e.message));
             }
             
-            console.log('🎤 [VOICE] Converting', inputBuffer.length, 'bytes...');
+            console.log('🎤 [FFMPEG] Converting', inputBuffer.length, 'bytes...');
+            console.log('🎤 [FFMPEG] Path:', ffmpegStatic);
             
             ffmpeg(tmpIn)
                 .audioCodec('libopus')
@@ -619,15 +620,13 @@ io.on('connection', (socket) => {
                     '-application', 'voip',
                     '-frame_duration', '60',
                     '-vbr', 'on',
-                    '-compression_level', '10',
-                    '-map_metadata', '-1'
+                    '-compression_level', '10'
                 ])
-                .on('start', (cmd) => console.log('🎤 [FFMPEG]', cmd.substring(0, 100)))
-                .on('progress', (p) => {})
+                .on('start', (cmd) => console.log('🎤 [FFMPEG] Started'))
                 .on('end', () => {
                     try {
                         const out = fs.readFileSync(tmpOut);
-                        console.log('✅ [VOICE] Converted:', inputBuffer.length, '→', out.length, 'bytes');
+                        console.log('✅ [FFMPEG] Done:', inputBuffer.length, '→', out.length, 'bytes');
                         try { fs.unlinkSync(tmpIn); } catch(e){}
                         try { fs.unlinkSync(tmpOut); } catch(e){}
                         resolve(out);
