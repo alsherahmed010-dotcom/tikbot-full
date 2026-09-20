@@ -217,6 +217,272 @@ textarea{min-height:85px;resize:vertical;line-height:1.5}
 #matrix{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:.55}
 body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,rgba(0,255,65,.03) 0px,rgba(0,255,65,.03) 1px,transparent 1px,transparent 3px);pointer-events:none;z-index:9998}
 </style>
+<style>
+/* ═══════════════════════════════════════════
+   🎨 HACKER GREEN OVERRIDE — يسحق كل الألوان القديمة
+   ═══════════════════════════════════════════ */
+:root{
+  --bg:#000 !important;
+  --gr:#00ff41 !important;
+  --gr2:#00cc33 !important;
+  --err:#00cc33 !important;
+  --wn:#00ff41 !important;
+  --txt:#00ff41 !important;
+  --dim:#0a5a0a !important;
+  --p:#00ff41 !important;
+  --p2:#00cc33 !important;
+}
+html, body{
+  background:#000 !important;
+  color:#00ff41 !important;
+}
+body *{
+  border-color:#00ff41 !important;
+}
+/* البطاقات */
+.card, .st-box, .sbar, .job-item, .ji, .gi, .mi, .px, .code, .connected, .groups, .jobs-panel, .proxy-list{
+  background: rgba(0,10,0,0.85) !important;
+  border-color: #00ff41 !important;
+  box-shadow: 0 0 20px rgba(0,255,65,0.15) !important;
+}
+/* الأزرار الأساسية */
+.b, button.act{
+  background: rgba(0,255,65,0.08) !important;
+  color: #00ff41 !important;
+  border: 1px solid #00ff41 !important;
+  box-shadow: 0 0 15px rgba(0,255,65,0.2) !important;
+}
+.b:hover, button.act:hover{
+  background: #00ff41 !important;
+  color: #000 !important;
+  box-shadow: 0 0 30px #00ff41 !important;
+}
+/* زر أحمر → أخضر غامق */
+.b.red, .logout-btn, .jstop{
+  background: rgba(0,136,51,0.15) !important;
+  color: #00ff41 !important;
+  border-color: #00cc33 !important;
+}
+.b.red:hover{
+  background: #00cc33 !important;
+  color: #000 !important;
+}
+/* زر أخضر */
+.b.green{
+  background: rgba(0,255,65,0.15) !important;
+  border-color: #00ff41 !important;
+  color: #00ff41 !important;
+}
+.b.green:hover{
+  background: #00ff41 !important;
+  color: #000 !important;
+}
+/* زر رمادي */
+.b.gray{
+  background: rgba(0,0,0,0.6) !important;
+  color: #0a5a0a !important;
+  border-color: #0a5a0a !important;
+}
+.b.gray:hover{
+  color: #00ff41 !important;
+  border-color: #00ff41 !important;
+}
+/* الأيقونات في h3 */
+.card h3 .ico, .card h3 .num{
+  background: linear-gradient(135deg, #00ff41, #00cc33) !important;
+  color: #000 !important;
+  box-shadow: 0 0 15px rgba(0,255,65,0.6) !important;
+}
+/* العناوين */
+.card h3, .jobs-panel h3, .hd h1{
+  color: #00ff41 !important;
+  text-shadow: 0 0 10px #00ff41, 0 0 20px rgba(0,255,65,0.5) !important;
+}
+/* النصوص */
+.st-box .n, .sbar .val, .sbar .it .val, .ji .stats-r b, .gi .cn, .ji .hdr .t, .ji .tgt{
+  color: #00ff41 !important;
+  text-shadow: 0 0 10px rgba(0,255,65,0.5) !important;
+}
+.st-box .t, .fld, .sp-lbl, .empty, .msg-box, .info{
+  color: #00cc33 !important;
+}
+/* Inputs */
+input, textarea, select{
+  background: rgba(0,10,0,0.7) !important;
+  border-color: #0a5a0a !important;
+  color: #00ff41 !important;
+}
+input:focus, textarea:focus{
+  border-color: #00ff41 !important;
+  box-shadow: 0 0 20px rgba(0,255,65,0.4) !important;
+}
+input::placeholder, textarea::placeholder{
+  color: #0a5a0a !important;
+}
+/* الـ Speed buttons */
+.sp{
+  background: rgba(0,0,0,0.6) !important;
+  border-color: #0a5a0a !important;
+}
+.sp.on{
+  background: #00ff41 !important;
+  border-color: #00ff41 !important;
+  box-shadow: 0 0 20px #00ff41 !important;
+}
+.sp .n{ color: #00ff41 !important; }
+.sp.on .n{ color: #000 !important; }
+.sp.on .u{ color: #000 !important; }
+/* Progress bars */
+.job-progress, .ji .pg{
+  background: rgba(0,20,0,0.8) !important;
+  border-color: #0a5a0a !important;
+}
+.job-progress-fill, .ji .pf{
+  background: linear-gradient(90deg, #00ff41, #00cc33) !important;
+  box-shadow: 0 0 10px #00ff41 !important;
+}
+/* Badges */
+.bdg, .badge, .card h3 .bdg{
+  background: rgba(0,255,65,0.1) !important;
+  color: #00ff41 !important;
+  border-color: #00ff41 !important;
+}
+.bdg.on, .card h3 .bdg.on{
+  background: rgba(0,255,65,0.2) !important;
+  color: #00ff41 !important;
+  border-color: #00ff41 !important;
+}
+/* الـ dot indicator */
+.dot{
+  background: #00cc33 !important;
+  box-shadow: 0 0 15px #00cc33 !important;
+}
+.dot.on{
+  background: #00ff41 !important;
+  box-shadow: 0 0 20px #00ff41 !important;
+}
+/* التوست */
+.toast{
+  background: rgba(0,10,0,0.95) !important;
+  border-color: #00ff41 !important;
+  color: #00ff41 !important;
+  box-shadow: 0 0 30px #00ff41 !important;
+}
+/* الـ Modal للشات */
+.modal, .chat{
+  background: #000 !important;
+  border-color: #00ff41 !important;
+}
+.chat-bd{
+  background: #000 !important;
+}
+.chat-hd{
+  background: rgba(0,20,0,0.9) !important;
+  border-color: #00ff41 !important;
+}
+.m.them{
+  background: rgba(0,20,0,0.8) !important;
+  color: #00ff41 !important;
+  border-color: #0a5a0a !important;
+}
+.m.me{
+  background: linear-gradient(135deg, #00ff41, #00cc33) !important;
+  color: #000 !important;
+}
+.chat-ft{
+  background: rgba(0,10,0,0.9) !important;
+  border-color: #00ff41 !important;
+}
+.chat-ft button{
+  background: #00ff41 !important;
+  color: #000 !important;
+}
+/* Media labels */
+.media-lbl{
+  background: rgba(0,10,0,0.7) !important;
+  border-color: #0a5a0a !important;
+}
+.media-lbl:hover{
+  border-color: #00ff41 !important;
+  background: rgba(0,255,65,0.05) !important;
+}
+.media-lbl .ic{
+  color: #00ff41 !important;
+}
+.media-lbl .tx{
+  color: #00cc33 !important;
+}
+/* الـ media items */
+.mi{
+  background: rgba(0,10,0,0.7) !important;
+  border-color: #00ff41 !important;
+}
+/* Empty */
+.empty{
+  color: #0a5a0a !important;
+}
+/* Button "toggle" in jobs */
+.jobs-panel h3 button{
+  background: rgba(0,0,0,0.6) !important;
+  color: #00ff41 !important;
+  border-color: #00ff41 !important;
+}
+/* شاشة الدخول */
+.auth-screen{
+  background: #000 !important;
+}
+.auth-box{
+  background: rgba(0,10,0,0.9) !important;
+  border-color: #00ff41 !important;
+}
+.auth-logo h1{
+  color: #00ff41 !important;
+  text-shadow: 0 0 15px #00ff41, 0 0 30px #00ff41 !important;
+}
+.auth-pane input{
+  background: rgba(0,10,0,0.7) !important;
+  border-color: #0a5a0a !important;
+  color: #00ff41 !important;
+}
+.auth-pane input:focus{
+  border-color: #00ff41 !important;
+  box-shadow: 0 0 15px rgba(0,255,65,0.3) !important;
+}
+.auth-main-btn{
+  background: #00ff41 !important;
+  color: #000 !important;
+  box-shadow: 0 0 20px rgba(0,255,65,0.4) !important;
+}
+.auth-main-btn:hover{
+  background: #fff !important;
+}
+.auth-link-btn{
+  color: #0a5a0a !important;
+}
+.auth-link-btn:hover, .auth-link-btn span{
+  color: #00ff41 !important;
+}
+.auth-tab{
+  background: rgba(0,10,0,0.5) !important;
+  border-color: #0a5a0a !important;
+  color: #0a5a0a !important;
+}
+.auth-tab.active{
+  background: #00ff41 !important;
+  color: #000 !important;
+  border-color: #00ff41 !important;
+}
+/* Sound toggle */
+.sound-toggle{
+  background: rgba(0,10,0,0.8) !important;
+  border-color: #00ff41 !important;
+  color: #00ff41 !important;
+}
+.sound-toggle:hover{
+  background: #00ff41 !important;
+  color: #000 !important;
+}
+</style>
 </head>
 <body>
 <canvas id="matrix"></canvas>
