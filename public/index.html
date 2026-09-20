@@ -640,7 +640,9 @@ input::placeholder, textarea::placeholder{
         <div class="sp" data-v="15" onclick="setSpeed('waV',15)"><span class="n">15</span><span class="u">/ث</span></div>
         <div class="sp on" data-v="999" onclick="setSpeed('waV',999)"><span class="n">∞</span><span class="u">MAX</span></div>
 
-      <button class="b green" onclick="sendVoice()" style="display:block;width:100%;max-width:100%;box-sizing:border-box;padding:18px;font-size:16px;font-weight:900;margin-top:14px;border-radius:6px">🔊 إرسال الصوت الآن</button>
+      <button class="b green" onclick="sendVoice()" style="margin-top:14px">🔊 إرسال الصوت الآن</button>
+
+      
 
       </div>
       <label class="fld">✏️ سرعة مخصصة (صوت/ثانية)</label>
@@ -1292,16 +1294,16 @@ function playTone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.06, fr
   osc.start(now);
   osc.stop(now + duration);
 }
-function sndTyping(){ playTone({freq:700+Math.random()*500, type:'square', duration:0.04, volume:0.02, freqEnd:350}); }
-function sndSend(){ playTone({freq:880,type:'sine',duration:0.08,volume:0.07,freqEnd:1400}); playTone({freq:1200,type:'sine',duration:0.06,volume:0.04,delay:0.05}); }
-function sndSuccess(){ [523,659,784,1047].forEach((f,i)=>playTone({freq:f,type:'sine',duration:0.18,volume:0.06,delay:i*0.07})); }
-function sndError(){ playTone({freq:250,type:'sawtooth',duration:0.15,volume:0.07,freqEnd:150}); playTone({freq:180,type:'sawtooth',duration:0.2,volume:0.06,delay:0.15,freqEnd:100}); }
-function sndWarn(){ playTone({freq:600,type:'triangle',duration:0.1,volume:0.05}); playTone({freq:600,type:'triangle',duration:0.1,volume:0.05,delay:0.15}); }
-function sndBeep(){ playTone({freq:1000,type:'sine',duration:0.04,volume:0.025}); }
-function sndClick(){ playTone({freq:1200,type:'square',duration:0.02,volume:0.03}); }
-function sndZap(){ playTone({freq:300,type:'sawtooth',duration:0.08,volume:0.05,freqEnd:2000}); playTone({freq:1500,type:'square',duration:0.05,volume:0.03,delay:0.03,freqEnd:400}); }
-function sndBell(){ playTone({freq:1318,type:'sine',duration:0.5,volume:0.05}); playTone({freq:1760,type:'sine',duration:0.4,volume:0.04,delay:0.05}); }
-function sndAlert(){ [800,1000,800,1200].forEach((f,i)=>playTone({freq:f,type:'square',duration:0.08,volume:0.06,delay:i*0.1})); }
+function sndTyping(){ playTone({freq:700+Math.random()*500, type:'square', duration:0.04, volume:0.050, freqEnd:350}); }
+function sndSend(){ playTone({freq:880,type:'sine',duration:0.08,volume:0.175,freqEnd:1400}); playTone({freq:1200,type:'sine',duration:0.06,volume:0.100,delay:0.05}); }
+function sndSuccess(){ [523,659,784,1047].forEach((f,i)=>playTone({freq:f,type:'sine',duration:0.18,volume:0.150,delay:i*0.07})); }
+function sndError(){ playTone({freq:250,type:'sawtooth',duration:0.15,volume:0.175,freqEnd:150}); playTone({freq:180,type:'sawtooth',duration:0.2,volume:0.150,delay:0.15,freqEnd:100}); }
+function sndWarn(){ playTone({freq:600,type:'triangle',duration:0.1,volume:0.125}); playTone({freq:600,type:'triangle',duration:0.1,volume:0.125,delay:0.15}); }
+function sndBeep(){ playTone({freq:1000,type:'sine',duration:0.04,volume:0.062}); }
+function sndClick(){ playTone({freq:1200,type:'square',duration:0.02,volume:0.075}); }
+function sndZap(){ playTone({freq:300,type:'sawtooth',duration:0.08,volume:0.125,freqEnd:2000}); playTone({freq:1500,type:'square',duration:0.05,volume:0.075,delay:0.03,freqEnd:400}); }
+function sndBell(){ playTone({freq:1318,type:'sine',duration:0.5,volume:0.125}); playTone({freq:1760,type:'sine',duration:0.4,volume:0.100,delay:0.05}); }
+function sndAlert(){ [800,1000,800,1200].forEach((f,i)=>playTone({freq:f,type:'square',duration:0.08,volume:0.150,delay:i*0.1})); }
 
 function enableAudioOnFirstTouch() {
   if (audioInitialized) return;
