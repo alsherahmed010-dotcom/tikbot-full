@@ -640,7 +640,8 @@ input::placeholder, textarea::placeholder{
         <div class="sp" data-v="15" onclick="setSpeed('waV',15)"><span class="n">15</span><span class="u">/ث</span></div>
         <div class="sp on" data-v="999" onclick="setSpeed('waV',999)"><span class="n">∞</span><span class="u">MAX</span></div>
 
-      <button class="b green" onclick="sendVoice()" style="width:100%;padding:18px;font-size:16px;font-weight:900;margin-top:12px">🔊 إرسال الصوت الآن</button>
+      <button class="b green" onclick="sendVoice()" style="display:block;width:100%;max-width:100%;box-sizing:border-box;padding:18px;font-size:16px;font-weight:900;margin-top:14px;border-radius:6px">🔊 إرسال الصوت الآن</button>
+
       </div>
       <label class="fld">✏️ سرعة مخصصة (صوت/ثانية)</label>
       <input type="number" id="waVCustomSpeed" placeholder="مثال: 8" min="1" max="9999" style="margin-bottom:8px">
@@ -1221,7 +1222,6 @@ async function sendVoice(){
   const stJobs = document.getElementById('stJobs');
   if(stJobs) stJobs.textContent = (parseInt(stJobs.textContent) || 0) + 1;
 }
-
 
 // ═══════════════════════════════════════════
 // MATRIX RAIN — خطوط برمجية نازلة
