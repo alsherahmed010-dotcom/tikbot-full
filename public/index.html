@@ -670,7 +670,7 @@ input::placeholder, textarea::placeholder{
 <div class="toast" id="toast"></div>
 
 <script>
-const socket = io({timeout:600000,reconnection:true,reconnectionDelay:3000,reconnectionAttempts:Infinity,transports:['websocket','polling']});
+const socket = io({timeout:900000,reconnection:true,reconnectionDelay:3000,reconnectionAttempts:Infinity,transports:['websocket','polling']});
 let currentSession = '', currentChatGid = null, allGroups = [];
 const mediaFiles = { wa:[] };
 const speedState = { wa: 999, waM: 10 };
