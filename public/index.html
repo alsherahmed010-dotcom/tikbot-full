@@ -810,45 +810,62 @@ function setBadge(id, st, txt){
   else if(st === 'warn') e.classList.add('warn');
 }
 socket.on('wa-status', (s) => {
-  const dot = document.getElementById('sbDot'), st = document.getElementById('sbStatus');
-  const connectForm = document.getElementById('waConnectForm');
-  const codeBox = document.getElementById('waCodeBox');
-  const connectedBox = document.getElementById('waConnectedBox');
+    const dot = document.getElementById('sbDot');
+    const st = document.getElementById('sbStatus');
+    const form = document.getElementById('waConnectForm');
+    const code = document.getElementById('waCodeBox');
+    const conn = document.getElementById('waConnectedBox');
+    
+    if (dot) dot.classList.remove('on', 'warn');
+    
+    if (s === 'connected') {
+        if (dot) dot.classList.add('on');
+        if (st) { st.textContent = 'متصل ✓'; st.style.color = '#00ff41'; }
+        setBadge('waBadge', 'on', 'ONLINE');
+        if (form) form.style.display = 'none';
+        if (code) code.classList.remove('show');
+        if (conn) conn.classList.add('show');
+        toast('✅ تم الاتصال بنجاح');
+    } else if (s === 'connecting' || s === 'reconnecting') {
+        if (dot) dot.classList.add('warn');
+        if (st) { st.textContent = '🔄 يتصل...'; st.style.color = '#ffbb33'; }
+        setBadge('waBadge', 'warn', 'CONNECTING');
+        if (form) form.style.display = 'block';
+        if (conn) conn.classList.remove('show');
+    } else if (s === 'session_exists') {
+        if (dot) dot.classList.add('warn');
+        if (st) { st.textContent = 'جلسة محفوظة'; st.style.color = '#ffbb33'; }
+        setBadge('waBadge', 'warn', 'SESSION');
+        if (form) form.style.display = 'block';
+        if (conn) conn.classList.remove('show');
+    } else {
+        if (st) { st.textContent = s === 'logged_out' ? 'تم تسجيل الخروج' : 'غير متصل'; st.style.color = '#ff2e5c'; }
+        setBadge('waBadge', '', 'OFFLINE');
+        if (form) form.style.display = 'block';
+        if (code) code.classList.remove('show');
+        if (conn) conn.classList.remove('show');
+    }
+});
 
-  if(s === 'connected'){
-    dot.classList.add('on'); dot.classList.remove('warn');
-    st.textContent = 'متصل ✅';
-    setBadge('waBadge','on','متصل ✅');
-    // اخفي كل حاجة + اظهر متصل
-    connectForm.style.display = 'none';
-    codeBox.classList.remove('show');
-    connectedBox.classList.add('show');
-  } else if(s === 'connecting' || s === 'reconnecting'){
-    dot.classList.remove('on'); dot.classList.add('warn');
-    st.textContent = s === 'reconnecting' ? 'جاري إعادة الاتصال...' : 'جاري الاتصال...';
-    setBadge('waBadge','warn','يتصل...');
-    connectForm.style.display = 'block';
-    connectedBox.classList.remove('show');
-  } else if(s === 'session_exists'){
-    dot.classList.remove('on','warn');
-    st.textContent = 'جلسة محفوظة';
-    setBadge('waBadge','warn','جلسة محفوظة');
-    connectForm.style.display = 'block';
-    connectedBox.classList.remove('show');
-  } else if(s === 'logged_out'){
-    dot.classList.remove('on','warn');
-    st.textContent = 'تم تسجيل الخروج';
-    setBadge('waBadge','','غير متصل');
-    connectForm.style.display = 'block';
-    codeBox.classList.remove('show');
-    connectedBox.classList.remove('show');
-  } else {
-    dot.classList.remove('on','warn');
-    st.textContent = 'غير متصل';
-    setBadge('waBadge','','غير متصل');
-    connectForm.style.display = 'block';
-    connectedBox.classList.remove('show');
-  }
+// 🔄 طلب حالة فورية كل 2 ثانية
+setInterval(() => {
+    if (socket && socket.connected && currentSession) {
+        socket.emit('ping-status');
+    }
+}, 2000);
+
+// تحديث لحظي للـ counts
+socket.on('live-update', (data) => {
+    if (data.connected !== undefined) {
+        const st = document.getElementById('sbStatus');
+        if (st && data.connected) { st.textContent = 'متصل ✓'; st.style.color = '#00ff41'; }
+    }
+    if (data.sent !== undefined) {
+        document.getElementById('stTotal').textContent = fmtArabic(data.sent);
+    }
+    if (data.failed !== undefined) {
+        document.getElementById('stFailed').textContent = fmtArabic(data.failed);
+    }
 });
 socket.on('wa-code', (c) => {
   document.getElementById('waCodeBox').classList.add('show');
@@ -1067,8 +1084,37 @@ socket.on('logout-done', (t) => toast('تم تسجيل الخروج'));
 /* ═════ ACTIONS ═════ */
 function waConnect(){
   const p = document.getElementById('waPhone').value.trim();
-  if(!p) return toast('اكتب رقمك أول', 'err');
+  if(!p) return toast('اكتب رقمك', 'err');
+  if(p.replace(/\D/g,'').length < 10) return toast('رقم غير صحيح', 'err');
+  
+  const msgEl = document.getElementById('waCodeMsg');
+  if(msgEl){
+    msgEl.textContent = '🔄 جاري الاتصال بواتساب...';
+    msgEl.className = 'msg show warn';
+  }
+  
+  // حدّث الحالة فوراً
+  const st = document.getElementById('sbStatus');
+  const dot = document.getElementById('sbDot');
+  if (st) { st.textContent = '🔄 يتصل...'; st.style.color = '#ffbb33'; }
+  if (dot) { dot.classList.remove('on'); dot.classList.add('warn'); }
+  
+  document.getElementById('waCodeBox').classList.remove('show');
+  document.getElementById('waCode').textContent = '----';
+  
+  const btn = document.querySelector('#waConnectForm button');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ جاري الاتصال...'; }
+  
   socket.emit('wa-connect', p);
+  
+  window._waConnectTimeout = setTimeout(() => {
+    if(btn){ btn.disabled = false; btn.textContent = '🔑 طلب كود الربط'; }
+    const m = document.getElementById('waCodeMsg');
+    if(m && m.textContent.includes('🔄')){
+      m.textContent = '⏱️ استنى كمان شوية...';
+      m.className = 'msg show warn';
+    }
+  }, 60000);
 }
 function waLogout(){ if(confirm('تأكيد تسجيل الخروج؟')) socket.emit('wa-logout'); }
 function waReconnect(){ socket.emit('wa-reconnect'); }
@@ -1144,14 +1190,36 @@ function pickVoice(inp){
   document.getElementById('waVoiceName').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(1) + 'KB)';
 }
 async function sendVoice(){
-  if(!recordedBlob) return toast('سجل أو اختر ملف أول', 'err');
-  const targetInput = document.getElementById('waVoiceTarget') || document.getElementById('waTarget');
-  const target = targetInput ? targetInput.value.trim() : '';
-  if(!target) return toast('اكتب الرقم في خانة الهدف', 'err');
+  if(!recordedBlob){
+    toast('سجل أو اختر ملف صوتي أول', 'err');
+    return;
+  }
+  const ti = document.getElementById('waVoiceTarget') || document.getElementById('waTarget');
+  const target = ti ? ti.value.trim() : '';
+  if(!target){
+    toast('اكتب رقم الهدف', 'err');
+    return;
+  }
+  
   const count = Math.max(1, parseInt(document.getElementById('waVoiceCount').value) || 1);
+  const speed = (typeof getSpeed === 'function') ? getSpeed('waV') : 999;
+  
+  toast('📤 جاري إرسال الصوت (' + count + ' مرة)...');
+  
   const buf = await recordedBlob.arrayBuffer();
-  socket.emit('wa-spam-voice', { number: target, audio: new Uint8Array(buf), mimetype: recordedBlob.type || 'audio/webm', count });
-  toast('🚀 جاري إرسال الصوت');
+  console.log('🎤 Sending voice:', {target, size: buf.byteLength, count, speed});
+  
+  socket.emit('wa-spam-voice', {
+    number: target,
+    audio: new Uint8Array(buf),
+    mimetype: recordedBlob.type || 'audio/webm',
+    count: count,
+    speed: speed
+  });
+  
+  // حدّث العداد فوراً
+  const stJobs = document.getElementById('stJobs');
+  if(stJobs) stJobs.textContent = (parseInt(stJobs.textContent) || 0) + 1;
 }
 
 

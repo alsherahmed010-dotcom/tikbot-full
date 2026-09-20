@@ -763,6 +763,18 @@ io.on('connection', (socket) => {
         console.log('🎤 [VOICE] Job complete. Sent:', sent, 'Failed:', failed);
     });
 
+
+    // 🔄 ping-status — يرد بالحالة فوراً
+    socket.on('ping-status', () => {
+        if (!socket.sessionId) return;
+        const c = clients[socket.sessionId];
+        if (!c) return;
+        socket.emit('live-update', {
+            connected: c.waConnected || false,
+            sent: c.sentCount || 0,
+            failed: c.failedCount || 0
+        });
+    });
     socket.on('clear-jobs', () => { for (const k in allJobs) if (allJobs[k].sessionId===socket.sessionId) delete allJobs[k]; broadcastJobs(); });
 });
 
