@@ -639,14 +639,14 @@ input::placeholder, textarea::placeholder{
         <div class="sp" data-v="10" onclick="setSpeed('waV',10)"><span class="n">10</span><span class="u">/ث</span></div>
         <div class="sp" data-v="15" onclick="setSpeed('waV',15)"><span class="n">15</span><span class="u">/ث</span></div>
         <div class="sp on" data-v="999" onclick="setSpeed('waV',999)"><span class="n">∞</span><span class="u">MAX</span></div>
+
+      <button class="b green" onclick="sendVoice()" style="width:100%;padding:18px;font-size:16px;font-weight:900;margin-top:12px">🔊 إرسال الصوت الآن</button>
       </div>
       <label class="fld">✏️ سرعة مخصصة (صوت/ثانية)</label>
       <input type="number" id="waVCustomSpeed" placeholder="مثال: 8" min="1" max="9999" style="margin-bottom:8px">
       <button class="b gray" onclick="applyCustomSpeed('waV')" style="margin-bottom:8px">✅ تطبيق السرعة المخصصة</button>
-      onclick="sendVoice()" style="width:100%">🔊 إرسال الصوت</button>
-    </div>
-
-<div class="card">
+      onclick="sendVoice()" style="width:100%">🔊 إرسال الصوت</div>
+    <div class="card">
       <h3>
         <div class="ttl"><span class="ico">👥</span><span>الجروبات</span></div>
         <button class="b gray" style="width:auto;padding:7px 14px;font-size:12px;margin:0" onclick="waGroups()">🔄 جلب</button>
