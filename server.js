@@ -5,6 +5,11 @@ const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegStatic = require('ffmpeg-static');
+ffmpeg.setFfmpegPath(ffmpegStatic);
+console.log('✅ [FFMPEG] Path:', ffmpegStatic);
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
